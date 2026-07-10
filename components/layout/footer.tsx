@@ -52,9 +52,9 @@ export function Footer() {
             <h3 className="text-white font-display font-bold mb-5 text-sm uppercase tracking-widest">Legal</h3>
             <ul className="space-y-3">
               {[
-                { href: "#",      label: "Privacy Policy" },
-                { href: "#",      label: "Terms of Service" },
-                { href: "/admin", label: "Admin Login" },
+                { href: "/privacy", label: "Privacy Policy" },
+                { href: "/terms",   label: "Terms of Service" },
+                { href: "/admin",   label: "Admin Login" },
               ].map((link) => (
                 <li key={link.label}>
                   <Link

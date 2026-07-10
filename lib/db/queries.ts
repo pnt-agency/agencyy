@@ -119,6 +119,32 @@ export async function listEmployerRecords(): Promise<EmployerRow[]> {
   return db.select().from(employers).orderBy(desc(employers.createdAt));
 }
 
+// Admin CRM: update just the notes and/or follow-up date on a lead. Only the
+// keys present in `data` are written, so callers can update either field alone.
+export async function updateTalentMeta(
+  id: string,
+  data: { notes?: string | null; followUpDate?: Date | null }
+): Promise<TalentRow | null> {
+  const set: Partial<TalentRow> = {};
+  if ("notes" in data) set.notes = data.notes ?? null;
+  if ("followUpDate" in data) set.followUpDate = data.followUpDate ?? null;
+  if (Object.keys(set).length === 0) return null;
+  const [record] = await db.update(talents).set(set).where(eq(talents.id, id)).returning();
+  return record ?? null;
+}
+
+export async function updateEmployerMeta(
+  id: string,
+  data: { notes?: string | null; followUpDate?: Date | null }
+): Promise<EmployerRow | null> {
+  const set: Partial<EmployerRow> = {};
+  if ("notes" in data) set.notes = data.notes ?? null;
+  if ("followUpDate" in data) set.followUpDate = data.followUpDate ?? null;
+  if (Object.keys(set).length === 0) return null;
+  const [record] = await db.update(employers).set(set).where(eq(employers.id, id)).returning();
+  return record ?? null;
+}
+
 export async function getEmployerRecord(id: string): Promise<EmployerRow | null> {
   const [record] = await db.select().from(employers).where(eq(employers.id, id));
   return record ?? null;

@@ -1,6 +1,6 @@
 "use server";
 
-import { createTalentRecord, createEmployerRecord, updateTalentRecord, updateEmployerRecord, hasRecentTalentSubmission, hasRecentEmployerSubmission } from "@/lib/db/queries";
+import { createTalentRecord, createEmployerRecord, updateTalentRecord, updateEmployerRecord, updateTalentMeta, updateEmployerMeta, hasRecentTalentSubmission, hasRecentEmployerSubmission } from "@/lib/db/queries";
 import { sendTalentConfirmationEmail, sendEmployerConfirmationEmail, sendAdminTalentNotification, sendAdminEmployerNotification } from "@/lib/resend";
 import { Talent, Employer } from "@/types";
 import { getAdminSession } from "@/lib/auth";
@@ -79,6 +79,46 @@ export async function updateEmployerStatus(id: string, status: Employer["status"
   } catch (error) {
     console.error("Error updating employer status:", error);
     return { success: false, error: "Failed to update status." };
+  }
+}
+
+type MetaPatch = { notes?: string; followUpDate?: string };
+
+// Convert a form patch (strings) into DB values, keeping only provided fields.
+function toMetaData(patch: MetaPatch): { notes?: string | null; followUpDate?: Date | null } {
+  const data: { notes?: string | null; followUpDate?: Date | null } = {};
+  if (patch.notes !== undefined) data.notes = patch.notes.trim() || null;
+  if (patch.followUpDate !== undefined) {
+    data.followUpDate = patch.followUpDate ? new Date(patch.followUpDate) : null;
+  }
+  return data;
+}
+
+export async function updateTalentDetails(id: string, patch: MetaPatch) {
+  if (!(await requireAdminSession())) {
+    return { success: false, error: "Not authenticated." };
+  }
+  try {
+    await updateTalentMeta(id, toMetaData(patch));
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating talent details:", error);
+    return { success: false, error: "Failed to save." };
+  }
+}
+
+export async function updateEmployerDetails(id: string, patch: MetaPatch) {
+  if (!(await requireAdminSession())) {
+    return { success: false, error: "Not authenticated." };
+  }
+  try {
+    await updateEmployerMeta(id, toMetaData(patch));
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating employer details:", error);
+    return { success: false, error: "Failed to save." };
   }
 }
 

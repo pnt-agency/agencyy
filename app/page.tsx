@@ -230,7 +230,9 @@ export default function AuthPage() {
           </p>
 
           <p className="mt-6 text-center text-xs text-white/30 max-w-xs mx-auto">
-            By continuing, you agree to Agency Build&apos;s Terms of Service and Privacy Policy.
+            By continuing, you agree to Agency Build&apos;s{" "}
+            <Link href="/terms" className="underline hover:text-white/60">Terms of Service</Link> and{" "}
+            <Link href="/privacy" className="underline hover:text-white/60">Privacy Policy</Link>.
           </p>
         </div>
       </div>
