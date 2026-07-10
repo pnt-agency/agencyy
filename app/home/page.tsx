@@ -136,6 +136,8 @@ export default function Home() {
     const savedReviews = localStorage.getItem("agency-build-reviews");
     if (savedReviews) {
       try {
+        // One-time hydration from localStorage, only available after mount.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setReviews(JSON.parse(savedReviews));
       } catch (e) {
         console.error("Failed to parse reviews", e);

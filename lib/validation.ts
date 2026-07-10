@@ -94,6 +94,15 @@ export const saveProfileSchema = z.object({
   employer: employerProfileSchema.optional(),
 });
 
+export const requestResetSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Invalid email address").max(254),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(8, "Password must be at least 8 characters").max(200),
+});
+
 export type RegisterMemberInput = z.infer<typeof registerMemberSchema>;
 export type TalentProfileInput = z.infer<typeof talentProfileSchema>;
 export type EmployerProfileInput = z.infer<typeof employerProfileSchema>;

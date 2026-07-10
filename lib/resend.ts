@@ -1,7 +1,10 @@
 import { Resend } from "resend";
 import type { Talent, Employer } from "@/types";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Construct lazily and only when configured — `new Resend(undefined)` throws,
+// which would break importing this module in any env without the key. Callers
+// gracefully no-op when `resend` is null.
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 // Basic HTML escaping so user-supplied fields can't inject markup into the
 // notification emails we send to ourselves.
@@ -12,8 +15,64 @@ function esc(value: string): string {
     .replace(/>/g, "&gt;");
 }
 
+export async function sendVerificationEmail(email: string, name: string, url: string) {
+  if (!resend) {
+    console.warn("Resend API key not configured.");
+    return null;
+  }
+
+  const { data, error } = await resend.emails.send({
+    from: "Agency Build <onboarding@resend.dev>",
+    to: email,
+    subject: "Verify your email - Agency Build",
+    html: `
+      <div>
+        <h2>Hi ${esc(name)},</h2>
+        <p>Welcome to Agency Build! Please confirm your email address to finish setting up your account.</p>
+        <p><a href="${url}">Verify my email</a></p>
+        <p>Or paste this link into your browser:<br />${esc(url)}</p>
+        <p>This link expires in 24 hours.</p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("Resend Error:", error);
+    throw new Error(`Resend failed: ${error.message}`);
+  }
+  return data;
+}
+
+export async function sendPasswordResetEmail(email: string, url: string) {
+  if (!resend) {
+    console.warn("Resend API key not configured.");
+    return null;
+  }
+
+  const { data, error } = await resend.emails.send({
+    from: "Agency Build <onboarding@resend.dev>",
+    to: email,
+    subject: "Reset your password - Agency Build",
+    html: `
+      <div>
+        <h2>Reset your password</h2>
+        <p>We received a request to reset your Agency Build password. If this was you, click below to choose a new one.</p>
+        <p><a href="${url}">Reset my password</a></p>
+        <p>Or paste this link into your browser:<br />${esc(url)}</p>
+        <p>This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("Resend Error:", error);
+    throw new Error(`Resend failed: ${error.message}`);
+  }
+  return data;
+}
+
 export async function sendTalentConfirmationEmail(email: string, name: string) {
-  if (!process.env.RESEND_API_KEY) {
+  if (!resend) {
     console.warn("Resend API key not configured.");
     return null;
   }
@@ -47,7 +106,7 @@ export async function sendAdminTalentNotification(
   data: Pick<Talent, "name" | "email" | "phone" | "country" | "role" | "experience" | "portfolio" | "cvLink" | "bio" | "whyJoin">
 ) {
   const to = process.env.ADMIN_NOTIFICATION_EMAIL;
-  if (!process.env.RESEND_API_KEY || !to) {
+  if (!resend || !to) {
     return null;
   }
 
@@ -83,7 +142,7 @@ export async function sendAdminTalentNotification(
 }
 
 export async function sendEmployerConfirmationEmail(email: string, contactName: string) {
-  if (!process.env.RESEND_API_KEY) {
+  if (!resend) {
     console.warn("Resend API key not configured.");
     return null;
   }
@@ -116,7 +175,7 @@ export async function sendAdminEmployerNotification(
   data: Pick<Employer, "companyName" | "contactName" | "email" | "phone" | "country" | "roleNeeded" | "numberNeeded" | "budget" | "startDate" | "requirements">
 ) {
   const to = process.env.ADMIN_NOTIFICATION_EMAIL;
-  if (!process.env.RESEND_API_KEY || !to) {
+  if (!resend || !to) {
     return null;
   }
 

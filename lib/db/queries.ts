@@ -6,11 +6,13 @@ import {
   users,
   talentProfiles,
   employerProfiles,
+  authTokens,
   type TalentRow,
   type EmployerRow,
   type UserRow,
   type TalentProfileRow,
   type EmployerProfileRow,
+  type AuthTokenRow,
 } from "./schema";
 import type { Talent, Employer } from "@/types";
 
@@ -184,6 +186,50 @@ export async function createUser(data: {
     .values({ ...data, email: data.email.trim().toLowerCase() })
     .returning();
   return user;
+}
+
+export async function setUserPassword(userId: string, passwordHash: string): Promise<void> {
+  await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
+}
+
+export async function markEmailVerified(userId: string): Promise<void> {
+  await db.update(users).set({ emailVerified: new Date() }).where(eq(users.id, userId));
+}
+
+// ---------- Auth tokens (email verification / password reset) ----------
+
+export async function createAuthToken(data: {
+  userId: string;
+  tokenHash: string;
+  purpose: string;
+  expiresAt: Date;
+}): Promise<void> {
+  // One live token per (user, purpose): drop any prior ones first.
+  await db
+    .delete(authTokens)
+    .where(and(eq(authTokens.userId, data.userId), eq(authTokens.purpose, data.purpose)));
+  await db.insert(authTokens).values(data);
+}
+
+export async function findValidAuthToken(
+  tokenHash: string,
+  purpose: string
+): Promise<AuthTokenRow | null> {
+  const [token] = await db
+    .select()
+    .from(authTokens)
+    .where(
+      and(
+        eq(authTokens.tokenHash, tokenHash),
+        eq(authTokens.purpose, purpose),
+        gte(authTokens.expiresAt, new Date())
+      )
+    );
+  return token ?? null;
+}
+
+export async function deleteAuthToken(id: string): Promise<void> {
+  await db.delete(authTokens).where(eq(authTokens.id, id));
 }
 
 export async function getTalentProfile(

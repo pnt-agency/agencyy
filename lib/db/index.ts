@@ -12,7 +12,6 @@ if (!connectionString) {
 
 // Reuse the pool across hot reloads in dev so we don't exhaust Postgres connections.
 declare global {
-  // eslint-disable-next-line no-var
   var __pgPool: Pool | undefined;
 }
 

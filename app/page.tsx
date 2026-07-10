@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { ArrowRight, Mail, KeyRound, User, Briefcase } from "lucide-react";
@@ -176,6 +177,14 @@ export default function AuthPage() {
                 />
               </div>
             </div>
+
+            {mode === "signin" && (
+              <div className="text-right -mt-1">
+                <Link href="/forgot-password" className="text-sm text-white/60 hover:text-white transition-colors">
+                  Forgot password?
+                </Link>
+              </div>
+            )}
 
             {error && (
               <p role="alert" className="text-red-400 text-sm">{error}</p>

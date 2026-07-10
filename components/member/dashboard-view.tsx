@@ -1,7 +1,9 @@
 "use client";
 
-import { Briefcase, FileText, Calendar, ChevronRight, CheckCircle2, TrendingUp } from "lucide-react";
+import { useState, useTransition } from "react";
+import { Briefcase, FileText, Calendar, ChevronRight, CheckCircle2, TrendingUp, MailWarning } from "lucide-react";
 import Link from "next/link";
+import { resendVerificationEmail } from "@/app/auth-actions";
 
 type DashboardViewProps = {
   name: string;
@@ -10,6 +12,7 @@ type DashboardViewProps = {
   memberSince: string;
   profileCompleteness: number;
   leadCount: number;
+  emailVerified: boolean;
 };
 
 export function DashboardView({
@@ -19,8 +22,19 @@ export function DashboardView({
   memberSince,
   profileCompleteness,
   leadCount,
+  emailVerified,
 }: DashboardViewProps) {
   const isTalent = role !== "employer";
+
+  const [resendState, setResendState] = useState<"idle" | "sent" | "error">("idle");
+  const [isResending, startResend] = useTransition();
+
+  const handleResend = () => {
+    startResend(async () => {
+      const result = await resendVerificationEmail();
+      setResendState(result.success ? "sent" : "error");
+    });
+  };
 
   // Real, actionable next steps derived from the account's actual state — no
   // fabricated activity feed.
@@ -42,6 +56,29 @@ export function DashboardView({
   return (
     <div className="min-h-screen bg-gray-50 pt-32 pb-12">
       <div className="max-w-7xl mx-auto px-6">
+
+        {/* Email verification notice — soft (informational, not blocking) */}
+        {!emailVerified && (
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3 justify-between rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+            <div className="flex items-center gap-3">
+              <MailWarning className="w-5 h-5 text-amber-600 shrink-0" />
+              <p className="text-sm text-amber-900">
+                Please verify your email address. We sent a link to <span className="font-semibold">{email}</span>.
+              </p>
+            </div>
+            {resendState === "sent" ? (
+              <span className="text-sm font-semibold text-amber-700 shrink-0">Verification email sent ✓</span>
+            ) : (
+              <button
+                onClick={handleResend}
+                disabled={isResending}
+                className="text-sm font-semibold text-amber-900 underline hover:no-underline disabled:opacity-50 shrink-0"
+              >
+                {isResending ? "Sending..." : resendState === "error" ? "Failed — try again" : "Resend email"}
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-6">

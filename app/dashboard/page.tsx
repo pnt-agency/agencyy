@@ -62,6 +62,7 @@ export default async function DashboardPage() {
       memberSince={memberSince}
       profileCompleteness={profileCompleteness}
       leadCount={leadCount}
+      emailVerified={Boolean(account?.emailVerified)}
     />
   );
 }

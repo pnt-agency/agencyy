@@ -76,6 +76,23 @@ export const users = pgTable("users", {
   passwordHash: text("password_hash"),
   // Authorization role. Only "admin" may access /admin and mutate records.
   role: text("role").notNull().default("user"),
+  // Set when the user confirms their email via a verification link.
+  emailVerified: timestamp("email_verified", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// Single-use, hashed tokens for email verification and password reset. The raw
+// token is emailed; only its SHA-256 hash is stored.
+export const authTokens = pgTable("auth_tokens", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  tokenHash: text("token_hash").notNull().unique(),
+  purpose: text("purpose").notNull(), // "verify_email" | "reset_password"
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -130,3 +147,5 @@ export type TalentProfileRow = typeof talentProfiles.$inferSelect;
 export type NewTalentProfileRow = typeof talentProfiles.$inferInsert;
 export type EmployerProfileRow = typeof employerProfiles.$inferSelect;
 export type NewEmployerProfileRow = typeof employerProfiles.$inferInsert;
+export type AuthTokenRow = typeof authTokens.$inferSelect;
+export type NewAuthTokenRow = typeof authTokens.$inferInsert;

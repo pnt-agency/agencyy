@@ -64,6 +64,8 @@ export function TrainingView() {
     const savedWatched = localStorage.getItem("training-watched");
     if (saved) {
       try {
+        // One-time hydration from localStorage, only available after mount.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setModules(JSON.parse(saved));
       } catch {}
     }
