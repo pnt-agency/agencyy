@@ -17,7 +17,7 @@ const applySchema = z.object({
   portfolio: z.string().url("Must be a valid URL").optional().or(z.literal('')),
   bio: z.string().min(10, "Bio must be at least 10 characters"),
   whyJoin: z.string().min(10, "Please tell us why you want to join"),
-  cv: z.any().optional(), // File upload placeholder
+  cvLink: z.string().url("Must be a valid URL").max(500).optional().or(z.literal("")),
 });
 
 type ApplyFormValues = z.infer<typeof applySchema>;
@@ -35,6 +35,7 @@ const roles = [
 export default function ApplyPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     register,
@@ -46,8 +47,8 @@ export default function ApplyPage() {
 
   const onSubmit = async (data: ApplyFormValues) => {
     setIsSubmitting(true);
-    
-    // Import action dynamically or rely on top-level import
+    setSubmitError(null);
+
     const { submitTalentApplication } = await import('@/app/actions');
     const result = await submitTalentApplication({
       name: data.name,
@@ -59,14 +60,14 @@ export default function ApplyPage() {
       portfolio: data.portfolio,
       bio: data.bio,
       whyJoin: data.whyJoin,
-      cvLink: "", // Handle file upload separately in a real app
+      cvLink: data.cvLink || "",
     });
-    
+
     setIsSubmitting(false);
     if (result.success) {
       setIsSuccess(true);
     } else {
-      alert("Something went wrong. Please try again.");
+      setSubmitError(result.error ?? "Something went wrong. Please try again.");
     }
   };
 
@@ -99,8 +100,9 @@ export default function ApplyPage() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-black">Full Name *</label>
+                <label htmlFor="name" className="text-sm font-medium text-black">Full Name *</label>
                 <input
+                  id="name"
                   {...register("name")}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
                   placeholder="John Doe"
@@ -108,8 +110,9 @@ export default function ApplyPage() {
                 {errors.name && <p className="text-red-500 text-xs">{errors.name.message}</p>}
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-black">Email Address *</label>
+                <label htmlFor="email" className="text-sm font-medium text-black">Email Address *</label>
                 <input
+                  id="email"
                   {...register("email")}
                   type="email"
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
@@ -118,8 +121,9 @@ export default function ApplyPage() {
                 {errors.email && <p className="text-red-500 text-xs">{errors.email.message}</p>}
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-black">Phone Number *</label>
+                <label htmlFor="phone" className="text-sm font-medium text-black">Phone Number *</label>
                 <input
+                  id="phone"
                   {...register("phone")}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
                   placeholder="+1 234 567 8900"
@@ -127,8 +131,9 @@ export default function ApplyPage() {
                 {errors.phone && <p className="text-red-500 text-xs">{errors.phone.message}</p>}
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-black">Country *</label>
+                <label htmlFor="country" className="text-sm font-medium text-black">Country *</label>
                 <input
+                  id="country"
                   {...register("country")}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
                   placeholder="United States"
@@ -139,8 +144,9 @@ export default function ApplyPage() {
 
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-black">Role Applying For *</label>
+                <label htmlFor="role" className="text-sm font-medium text-black">Role Applying For *</label>
                 <select
+                  id="role"
                   {...register("role")}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black bg-white"
                 >
@@ -152,21 +158,22 @@ export default function ApplyPage() {
                 {errors.role && <p className="text-red-500 text-xs">{errors.role.message}</p>}
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-black">Years of Experience *</label>
+                <label htmlFor="experience" className="text-sm font-medium text-black">Years of Experience *</label>
                 <input
+                  id="experience"
                   {...register("experience")}
-                  type="number"
-                  min="0"
+                  type="text"
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-                  placeholder="3"
+                  placeholder="e.g. 3, 5+, or 3-4"
                 />
                 {errors.experience && <p className="text-red-500 text-xs">{errors.experience.message}</p>}
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-black">Link to Portfolio / LinkedIn</label>
+              <label htmlFor="portfolio" className="text-sm font-medium text-black">Link to Portfolio / LinkedIn</label>
               <input
+                id="portfolio"
                 {...register("portfolio")}
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
                 placeholder="https://linkedin.com/in/..."
@@ -175,8 +182,9 @@ export default function ApplyPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-black">Short Bio *</label>
+              <label htmlFor="bio" className="text-sm font-medium text-black">Short Bio *</label>
               <textarea
+                id="bio"
                 {...register("bio")}
                 rows={4}
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black resize-none"
@@ -186,8 +194,9 @@ export default function ApplyPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-black">Why do you want to join Agency Build? *</label>
+              <label htmlFor="whyJoin" className="text-sm font-medium text-black">Why do you want to join Agency Build? *</label>
               <textarea
+                id="whyJoin"
                 {...register("whyJoin")}
                 rows={3}
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black resize-none"
@@ -197,13 +206,21 @@ export default function ApplyPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-black">Upload CV</label>
+              <label htmlFor="cvLink" className="text-sm font-medium text-black">Link to CV / Resume</label>
               <input
-                {...register("cv")}
-                type="file"
-                className="w-full px-4 py-2 border border-black/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-black bg-white text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-black file:text-white hover:file:bg-black/80"
+                id="cvLink"
+                {...register("cvLink")}
+                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                placeholder="https://drive.google.com/..."
               />
+              {errors.cvLink && <p className="text-red-500 text-xs">{errors.cvLink.message}</p>}
             </div>
+
+            {submitError && (
+              <p role="alert" className="text-red-600 text-sm text-center">
+                {submitError}
+              </p>
+            )}
 
             <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? "Submitting..." : "Submit Application"}

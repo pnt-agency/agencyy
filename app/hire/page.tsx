@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
@@ -43,18 +43,22 @@ const budgetRanges = [
 export default function HirePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<HireFormValues>({
-    resolver: zodResolver(hireSchema) as any,
+    // Cast needed because z.coerce.number() gives the schema an `unknown` input
+    // type that doesn't line up with HireFormValues (the parsed output type).
+    resolver: zodResolver(hireSchema) as Resolver<HireFormValues>,
   });
 
   const onSubmit = async (data: HireFormValues) => {
     setIsSubmitting(true);
-    
+    setSubmitError(null);
+
     const { submitEmployerInquiry } = await import('@/app/actions');
     const result = await submitEmployerInquiry({
       companyName: data.companyName,
@@ -73,7 +77,7 @@ export default function HirePage() {
     if (result.success) {
       setIsSuccess(true);
     } else {
-      alert("Something went wrong. Please try again.");
+      setSubmitError(result.error ?? "Something went wrong. Please try again.");
     }
   };
 
@@ -106,8 +110,9 @@ export default function HirePage() {
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-black">Company Name *</label>
+                <label htmlFor="companyName" className="text-sm font-medium text-black">Company Name *</label>
                 <input
+                  id="companyName"
                   {...register("companyName")}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
                   placeholder="Acme Corp"
@@ -115,8 +120,9 @@ export default function HirePage() {
                 {errors.companyName && <p className="text-red-500 text-xs">{errors.companyName.message}</p>}
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-black">Contact Person Name *</label>
+                <label htmlFor="contactName" className="text-sm font-medium text-black">Contact Person Name *</label>
                 <input
+                  id="contactName"
                   {...register("contactName")}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
                   placeholder="Jane Smith"
@@ -124,8 +130,9 @@ export default function HirePage() {
                 {errors.contactName && <p className="text-red-500 text-xs">{errors.contactName.message}</p>}
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-black">Email Address *</label>
+                <label htmlFor="email" className="text-sm font-medium text-black">Email Address *</label>
                 <input
+                  id="email"
                   {...register("email")}
                   type="email"
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
@@ -134,8 +141,9 @@ export default function HirePage() {
                 {errors.email && <p className="text-red-500 text-xs">{errors.email.message}</p>}
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-black">Phone Number *</label>
+                <label htmlFor="phone" className="text-sm font-medium text-black">Phone Number *</label>
                 <input
+                  id="phone"
                   {...register("phone")}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
                   placeholder="+1 234 567 8900"
@@ -143,8 +151,9 @@ export default function HirePage() {
                 {errors.phone && <p className="text-red-500 text-xs">{errors.phone.message}</p>}
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-black">Country *</label>
+                <label htmlFor="country" className="text-sm font-medium text-black">Country *</label>
                 <input
+                  id="country"
                   {...register("country")}
                   className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
                   placeholder="United States"
@@ -157,8 +166,9 @@ export default function HirePage() {
               <h3 className="text-lg font-bold text-black mb-4">Role Details</h3>
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-black">Role Needed *</label>
+                  <label htmlFor="roleNeeded" className="text-sm font-medium text-black">Role Needed *</label>
                   <select
+                    id="roleNeeded"
                     {...register("roleNeeded")}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black bg-white"
                   >
@@ -170,8 +180,9 @@ export default function HirePage() {
                   {errors.roleNeeded && <p className="text-red-500 text-xs">{errors.roleNeeded.message}</p>}
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-black">Number of People Needed *</label>
+                  <label htmlFor="numberNeeded" className="text-sm font-medium text-black">Number of People Needed *</label>
                   <input
+                    id="numberNeeded"
                     {...register("numberNeeded")}
                     type="number"
                     min="1"
@@ -181,8 +192,9 @@ export default function HirePage() {
                   {errors.numberNeeded && <p className="text-red-500 text-xs">{errors.numberNeeded.message}</p>}
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-black">Budget Range (per person) *</label>
+                  <label htmlFor="budget" className="text-sm font-medium text-black">Budget Range (per person) *</label>
                   <select
+                    id="budget"
                     {...register("budget")}
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black bg-white"
                   >
@@ -194,8 +206,9 @@ export default function HirePage() {
                   {errors.budget && <p className="text-red-500 text-xs">{errors.budget.message}</p>}
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-black">When do you want them to start? *</label>
+                  <label htmlFor="startDate" className="text-sm font-medium text-black">When do you want them to start? *</label>
                   <input
+                    id="startDate"
                     {...register("startDate")}
                     type="date"
                     className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
@@ -206,14 +219,21 @@ export default function HirePage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-black">Additional Requirements / Job Description</label>
+              <label htmlFor="requirements" className="text-sm font-medium text-black">Additional Requirements / Job Description</label>
               <textarea
+                id="requirements"
                 {...register("requirements")}
                 rows={4}
                 className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black resize-none"
                 placeholder="List any specific tools, software, or skills required..."
               />
             </div>
+
+            {submitError && (
+              <p role="alert" className="text-red-600 text-sm text-center">
+                {submitError}
+              </p>
+            )}
 
             <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
               {isSubmitting ? "Submitting..." : "Submit Inquiry"}

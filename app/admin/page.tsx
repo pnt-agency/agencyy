@@ -1,27 +1,31 @@
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import { getAdminSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { listTalentRecords, listEmployerRecords } from "@/lib/db/queries";
+import { TalentStatusUpdater } from "@/components/admin/talent-status-updater";
+import { EmployerStatusUpdater } from "@/components/admin/employer-status-updater";
+import { ExportDataButton } from "@/components/admin/export-data-button";
 
-// Mock Data
-const talentData = [
-  { id: 1, name: "Alice Johnson", role: "Virtual Assistant", country: "Philippines", status: "Applicant", followUp: "2023-11-01", notes: "Strong English skills" },
-  { id: 2, name: "Bob Smith", role: "Content Writer", country: "South Africa", status: "Screened", followUp: "2023-11-05", notes: "Portfolio looks great" },
-  { id: 3, name: "Carla Davis", role: "Project Manager", country: "USA", status: "Verified", followUp: "-", notes: "Ready for placement" },
-];
-
-const employerData = [
-  { id: 1, company: "TechStart Inc", contact: "Sarah J.", role: "Virtual Assistant", budget: "$1000 - $2000", status: "New Inquiry", followUp: "2023-10-28" },
-  { id: 2, company: "Growth Labs", contact: "Mike T.", role: "Social Media Manager", budget: "$2000+", status: "In Progress", followUp: "2023-10-30" },
-];
+function formatDate(date: Date | null) {
+  if (!date) return "-";
+  return new Date(date).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
 
 export default async function AdminDashboard() {
-  const session = await getServerSession(authOptions);
+  const session = await getAdminSession();
 
   if (!session) {
-    redirect("/api/auth/signin");
+    redirect("/");
   }
+
+  const [talents, employers] = await Promise.all([
+    listTalentRecords(),
+    listEmployerRecords(),
+  ]);
 
   return (
     <div className="flex-1 bg-gray-50 p-8">
@@ -31,7 +35,7 @@ export default async function AdminDashboard() {
             <h1 className="text-3xl font-bold text-navy">Admin Dashboard</h1>
             <p className="text-gray-600">Welcome back, {session.user?.name}</p>
           </div>
-          <Button variant="outline">Export Data CSV</Button>
+          <ExportDataButton talents={talents} employers={employers} />
         </div>
 
         {/* Talent Tracker */}
@@ -53,18 +57,29 @@ export default async function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {talentData.map((talent) => (
+                {talents.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                      No talent applications yet.
+                    </td>
+                  </tr>
+                )}
+                {talents.map((talent) => (
                   <tr key={talent.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="px-6 py-4 font-medium text-gray-900">{talent.name}</td>
                     <td className="px-6 py-4 text-gray-600">{talent.role}</td>
                     <td className="px-6 py-4 text-gray-600">{talent.country}</td>
                     <td className="px-6 py-4">
-                      <Badge variant={talent.status === 'Verified' ? 'success' : 'default'}>{talent.status}</Badge>
+                      <Badge variant={talent.status === "Verified" ? "success" : "default"}>
+                        {talent.status}
+                      </Badge>
                     </td>
-                    <td className="px-6 py-4 text-gray-600">{talent.followUp}</td>
-                    <td className="px-6 py-4 text-gray-600 truncate max-w-[200px]">{talent.notes}</td>
+                    <td className="px-6 py-4 text-gray-600">{formatDate(talent.followUpDate)}</td>
+                    <td className="px-6 py-4 text-gray-600 truncate max-w-[200px]">
+                      {talent.notes || "-"}
+                    </td>
                     <td className="px-6 py-4 text-right">
-                      <button className="text-gold font-medium hover:underline">Update</button>
+                      <TalentStatusUpdater id={talent.id} currentStatus={talent.status} />
                     </td>
                   </tr>
                 ))}
@@ -92,18 +107,27 @@ export default async function AdminDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {employerData.map((employer) => (
+                {employers.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                      No employer inquiries yet.
+                    </td>
+                  </tr>
+                )}
+                {employers.map((employer) => (
                   <tr key={employer.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="px-6 py-4 font-medium text-gray-900">{employer.company}</td>
-                    <td className="px-6 py-4 text-gray-600">{employer.contact}</td>
-                    <td className="px-6 py-4 text-gray-600">{employer.role}</td>
+                    <td className="px-6 py-4 font-medium text-gray-900">{employer.companyName}</td>
+                    <td className="px-6 py-4 text-gray-600">{employer.contactName}</td>
+                    <td className="px-6 py-4 text-gray-600">{employer.roleNeeded}</td>
                     <td className="px-6 py-4 text-gray-600">{employer.budget}</td>
                     <td className="px-6 py-4">
-                      <Badge variant={employer.status === 'New Inquiry' ? 'warning' : 'navy'}>{employer.status}</Badge>
+                      <Badge variant={employer.status === "New Inquiry" ? "warning" : "navy"}>
+                        {employer.status}
+                      </Badge>
                     </td>
-                    <td className="px-6 py-4 text-gray-600">{employer.followUp}</td>
+                    <td className="px-6 py-4 text-gray-600">{formatDate(employer.followUpDate)}</td>
                     <td className="px-6 py-4 text-right">
-                      <button className="text-gold font-medium hover:underline">Update</button>
+                      <EmployerStatusUpdater id={employer.id} currentStatus={employer.status} />
                     </td>
                   </tr>
                 ))}
@@ -111,7 +135,6 @@ export default async function AdminDashboard() {
             </table>
           </div>
         </div>
-
       </div>
     </div>
   );
