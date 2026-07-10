@@ -53,3 +53,48 @@ export const employerInputSchema = z.object({
 
 export type TalentInput = z.infer<typeof talentInputSchema>;
 export type EmployerInput = z.infer<typeof employerInputSchema>;
+
+// ---------- Member accounts ----------
+
+export const memberRoleEnum = z.enum(["talent", "employer"]);
+
+export const registerMemberSchema = z.object({
+  name: z.string().trim().min(2, "Name is required").max(120),
+  email: z.string().trim().toLowerCase().email("Invalid email address").max(254),
+  password: z.string().min(8, "Password must be at least 8 characters").max(200),
+  role: memberRoleEnum,
+});
+
+export const talentProfileSchema = z.object({
+  phone: z.string().trim().max(40).optional().or(z.literal("")),
+  country: z.string().trim().max(80).optional().or(z.literal("")),
+  bio: z.string().trim().max(5000).optional().or(z.literal("")),
+  skills: z.string().trim().max(1000).optional().or(z.literal("")),
+  portfolio: z
+    .string()
+    .trim()
+    .url("Must be a valid URL")
+    .max(500)
+    .optional()
+    .or(z.literal("")),
+});
+
+export const employerProfileSchema = z.object({
+  companyName: z.string().trim().max(160).optional().or(z.literal("")),
+  phone: z.string().trim().max(40).optional().or(z.literal("")),
+  country: z.string().trim().max(80).optional().or(z.literal("")),
+  bio: z.string().trim().max(5000).optional().or(z.literal("")),
+});
+
+// The profile form posts a role alongside the profile fields (used to place the
+// data in the right table and to set the account's role on first save).
+export const saveProfileSchema = z.object({
+  role: memberRoleEnum,
+  talent: talentProfileSchema.optional(),
+  employer: employerProfileSchema.optional(),
+});
+
+export type RegisterMemberInput = z.infer<typeof registerMemberSchema>;
+export type TalentProfileInput = z.infer<typeof talentProfileSchema>;
+export type EmployerProfileInput = z.infer<typeof employerProfileSchema>;
+export type SaveProfileInput = z.infer<typeof saveProfileSchema>;

@@ -1,6 +1,17 @@
 import { eq, desc, and, gte } from "drizzle-orm";
 import { db } from ".";
-import { talents, employers, type TalentRow, type EmployerRow } from "./schema";
+import {
+  talents,
+  employers,
+  users,
+  talentProfiles,
+  employerProfiles,
+  type TalentRow,
+  type EmployerRow,
+  type UserRow,
+  type TalentProfileRow,
+  type EmployerProfileRow,
+} from "./schema";
 import type { Talent, Employer } from "@/types";
 
 // Reject repeat submissions from the same email inside this window. This is a
@@ -125,4 +136,81 @@ export async function updateEmployerRecord(
     .returning();
 
   return record ?? null;
+}
+
+// ---------- Users & member profiles ----------
+
+export async function getUserByEmail(email: string): Promise<UserRow | null> {
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, email.trim().toLowerCase()));
+  return user ?? null;
+}
+
+export async function setUserRole(userId: string, role: string): Promise<void> {
+  await db.update(users).set({ role }).where(eq(users.id, userId));
+}
+
+export async function createUser(data: {
+  name: string;
+  email: string;
+  passwordHash: string;
+  role: string;
+}): Promise<UserRow> {
+  const [user] = await db
+    .insert(users)
+    .values({ ...data, email: data.email.trim().toLowerCase() })
+    .returning();
+  return user;
+}
+
+export async function getTalentProfile(
+  userId: string
+): Promise<TalentProfileRow | null> {
+  const [profile] = await db
+    .select()
+    .from(talentProfiles)
+    .where(eq(talentProfiles.userId, userId));
+  return profile ?? null;
+}
+
+export async function upsertTalentProfile(
+  userId: string,
+  data: Partial<Omit<TalentProfileRow, "id" | "userId" | "createdAt" | "updatedAt">>
+): Promise<TalentProfileRow> {
+  const [profile] = await db
+    .insert(talentProfiles)
+    .values({ userId, ...data })
+    .onConflictDoUpdate({
+      target: talentProfiles.userId,
+      set: { ...data, updatedAt: new Date() },
+    })
+    .returning();
+  return profile;
+}
+
+export async function getEmployerProfile(
+  userId: string
+): Promise<EmployerProfileRow | null> {
+  const [profile] = await db
+    .select()
+    .from(employerProfiles)
+    .where(eq(employerProfiles.userId, userId));
+  return profile ?? null;
+}
+
+export async function upsertEmployerProfile(
+  userId: string,
+  data: Partial<Omit<EmployerProfileRow, "id" | "userId" | "createdAt" | "updatedAt">>
+): Promise<EmployerProfileRow> {
+  const [profile] = await db
+    .insert(employerProfiles)
+    .values({ userId, ...data })
+    .onConflictDoUpdate({
+      target: employerProfiles.userId,
+      set: { ...data, updatedAt: new Date() },
+    })
+    .returning();
+  return profile;
 }

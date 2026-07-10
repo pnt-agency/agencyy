@@ -81,9 +81,52 @@ export const users = pgTable("users", {
     .defaultNow(),
 });
 
+// Member profiles — 1:1 with a user account. Kept separate from the CRM lead
+// tables (talents/employers) above, which the admin pipeline owns.
+export const talentProfiles = pgTable("talent_profiles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  phone: text("phone"),
+  country: text("country"),
+  bio: text("bio"),
+  skills: text("skills"),
+  portfolio: text("portfolio"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+export const employerProfiles = pgTable("employer_profiles", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id")
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: "cascade" }),
+  companyName: text("company_name"),
+  phone: text("phone"),
+  country: text("country"),
+  bio: text("bio"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export type TalentRow = typeof talents.$inferSelect;
 export type NewTalentRow = typeof talents.$inferInsert;
 export type EmployerRow = typeof employers.$inferSelect;
 export type NewEmployerRow = typeof employers.$inferInsert;
 export type UserRow = typeof users.$inferSelect;
 export type NewUserRow = typeof users.$inferInsert;
+export type TalentProfileRow = typeof talentProfiles.$inferSelect;
+export type NewTalentProfileRow = typeof talentProfiles.$inferInsert;
+export type EmployerProfileRow = typeof employerProfiles.$inferSelect;
+export type NewEmployerProfileRow = typeof employerProfiles.$inferInsert;

@@ -2,16 +2,20 @@
 
 import Link from "next/link";
 import { useState, useEffect, useRef } from "react";
-import { signOut, getSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { Bell, CheckCheck, X } from "lucide-react";
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showLogoutPrompt, setShowLogoutPrompt] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  const { data: session, status } = useSession();
+  const isLoggedIn = status === "authenticated";
+  const role = session?.user?.role;
+  const isEmployer = role === "employer";
   
   const [notifications, setNotifications] = useState([
     { id: 1, text: "Welcome to Agency Build! Complete your profile.", time: "1h ago", read: false },
@@ -44,13 +48,8 @@ export function Navbar() {
   }, []);
 
   const handleLogout = async () => {
-    localStorage.removeItem("user-email");
-    localStorage.removeItem("user-role");
-    localStorage.removeItem("user-name");
-    try {
-      await signOut({ redirect: false });
-    } catch(e) {}
-    window.location.href = "/";
+    setShowLogoutPrompt(false);
+    await signOut({ callbackUrl: "/" });
   };
 
   useEffect(() => {
@@ -58,19 +57,6 @@ export function Navbar() {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      const email = localStorage.getItem("user-email");
-      if (email) {
-        setIsLoggedIn(true);
-        return;
-      }
-      const session = await getSession();
-      setIsLoggedIn(!!session?.user);
-    };
-    checkAuth();
-  }, [pathname]);
 
   const isDarkBg = pathname === "/";
   const textColorClass = isDarkBg && !scrolled ? "text-white" : "text-black";
@@ -83,8 +69,9 @@ export function Navbar() {
     { href: "/about", label: "About" },
     { href: "/apply", label: "For Talent" },
     { href: "/hire", label: "For Employers" },
-    { href: "/training", label: "Training" },
-    { href: "/dashboard", label: "Dashboard" },
+    // Member-only destinations — hidden until authenticated (they redirect anyway).
+    ...(isLoggedIn ? [{ href: "/training", label: "Training" }] : []),
+    ...(isLoggedIn ? [{ href: "/dashboard", label: "Dashboard" }] : []),
   ];
 
   return (
@@ -176,7 +163,7 @@ export function Navbar() {
                           ))
                         ) : (
                           <div className="p-8 text-center text-gray-500 text-sm">
-                            You're all caught up!
+                            You&apos;re all caught up!
                           </div>
                         )}
                       </div>
@@ -193,12 +180,14 @@ export function Navbar() {
             )}
             {isLoggedIn && pathname !== "/" && (
               <>
-                <Link href="/hire">
-                  <button className={`px-5 py-2 text-sm font-bold rounded-xl hover:scale-105 transition-all duration-300 shadow-md ${isDarkBg && !scrolled ? "text-black bg-white hover:bg-white/90" : "text-white bg-black hover:bg-black/80"}`}>
-                    Hire Talent →
-                  </button>
-                </Link>
-                <button 
+                {isEmployer && (
+                  <Link href="/hire">
+                    <button className={`px-5 py-2 text-sm font-bold rounded-xl hover:scale-105 transition-all duration-300 shadow-md ${isDarkBg && !scrolled ? "text-black bg-white hover:bg-white/90" : "text-white bg-black hover:bg-black/80"}`}>
+                      Hire Talent →
+                    </button>
+                  </Link>
+                )}
+                <button
                   onClick={() => setShowLogoutPrompt(true)}
                   className="px-5 py-2 text-sm font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 hover:scale-105 transition-all duration-300 shadow-md"
                 >
@@ -241,10 +230,12 @@ export function Navbar() {
               )}
               {isLoggedIn && pathname !== "/" && (
                 <>
-                  <Link href="/hire" onClick={() => setMenuOpen(false)}>
-                    <button className="w-full py-2.5 text-sm font-bold text-white bg-black rounded-xl">Hire Talent →</button>
-                  </Link>
-                  <button 
+                  {isEmployer && (
+                    <Link href="/hire" onClick={() => setMenuOpen(false)}>
+                      <button className="w-full py-2.5 text-sm font-bold text-white bg-black rounded-xl">Hire Talent →</button>
+                    </Link>
+                  )}
+                  <button
                     onClick={() => setShowLogoutPrompt(true)}
                     className="w-full py-2.5 text-sm font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors"
                   >

@@ -7,62 +7,108 @@ import { getServerSession } from "next-auth/next";
 import { db } from "./db";
 import { users } from "./db/schema";
 
-export const authOptions: NextAuthOptions = {
-  providers: [
-    CredentialsProvider({
-      name: "Credentials",
-      credentials: {
-        email: { label: "Email", type: "email", placeholder: "admin@agencybuild.com" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null;
-        }
+// Fail loudly in production if the session-signing secret is missing, rather
+// than silently falling back to an auto-generated (and unstable) one.
+if (process.env.NODE_ENV === "production" && !process.env.NEXTAUTH_SECRET) {
+  throw new Error("NEXTAUTH_SECRET is not set.");
+}
 
-        const [user] = await db
-          .select()
-          .from(users)
-          .where(eq(users.email, credentials.email));
+const providers: NextAuthOptions["providers"] = [
+  CredentialsProvider({
+    name: "Credentials",
+    credentials: {
+      email: { label: "Email", type: "email", placeholder: "you@example.com" },
+      password: { label: "Password", type: "password" },
+    },
+    async authorize(credentials) {
+      if (!credentials?.email || !credentials?.password) {
+        return null;
+      }
 
-        if (!user || !user.passwordHash) {
-          return null;
-        }
+      const email = credentials.email.trim().toLowerCase();
+      const [user] = await db.select().from(users).where(eq(users.email, email));
 
-        const isValid = await bcrypt.compare(credentials.password, user.passwordHash);
-        if (!isValid) {
-          return null;
-        }
+      if (!user || !user.passwordHash) {
+        return null;
+      }
 
-        return { id: user.id, name: user.name, email: user.email };
-      },
-    }),
+      const isValid = await bcrypt.compare(credentials.password, user.passwordHash);
+      if (!isValid) {
+        return null;
+      }
+
+      return { id: user.id, name: user.name, email: user.email, role: user.role };
+    },
+  }),
+];
+
+// Only register Google when it's actually configured — an empty clientId/secret
+// produces a provider that fails confusingly at runtime.
+if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+  providers.push(
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID || "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
       authorization: {
         params: {
           prompt: "consent select_account",
         },
       },
-    }),
-  ],
+    })
+  );
+}
+
+export const authOptions: NextAuthOptions = {
+  providers,
+  secret: process.env.NEXTAUTH_SECRET,
   pages: {
     signIn: "/",
   },
   callbacks: {
-    // Restrict Google sign-in to emails that already exist in the users table —
-    // otherwise any Google account could authenticate into /admin.
+    // Auto-provision a member account on first Google sign-in. New Google users
+    // get the transient "user" role and pick talent/employer during profile
+    // setup. Existing users (including admins) keep their stored role.
     async signIn({ account, profile }) {
       if (account?.provider === "google") {
         if (!profile?.email) return false;
-        const [user] = await db
-          .select()
-          .from(users)
-          .where(eq(users.email, profile.email));
-        return Boolean(user);
+        const email = profile.email.trim().toLowerCase();
+        const [existing] = await db.select().from(users).where(eq(users.email, email));
+        if (!existing) {
+          await db.insert(users).values({
+            name: profile.name ?? email,
+            email,
+            role: "user",
+          });
+        }
+        return true;
       }
       return true;
+    },
+    // Put id + role on the token. Credentials sign-in supplies role directly;
+    // Google sign-in doesn't, so we resolve it from the DB by email.
+    async jwt({ token, user }) {
+      if (user) {
+        token.id = user.id;
+        token.role = user.role;
+      }
+      if (token.email && !token.role) {
+        const [dbUser] = await db
+          .select()
+          .from(users)
+          .where(eq(users.email, token.email));
+        if (dbUser) {
+          token.id = dbUser.id;
+          token.role = dbUser.role;
+        }
+      }
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        session.user.id = token.id;
+        session.user.role = token.role;
+      }
+      return session;
     },
   },
 };
@@ -82,4 +128,14 @@ export async function getAdminSession(): Promise<Session | null> {
   if (user?.role !== "admin") return null;
 
   return session;
+}
+
+/**
+ * Returns the current authenticated session (any role), or null. Used to gate
+ * member pages/actions. Callers that need role-specific behavior read
+ * session.user.role.
+ */
+export async function getCurrentUser(): Promise<Session["user"] | null> {
+  const session = await getServerSession(authOptions);
+  return session?.user ?? null;
 }

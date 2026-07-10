@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
+import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "Agency Build | Vetted Remote Talent",
@@ -24,11 +25,13 @@ export default function RootLayout({
         />
       </head>
       <body className={`font-sans antialiased flex flex-col min-h-screen`}>
-        <Navbar />
-        <main className="flex-1 flex flex-col">
-          {children}
-        </main>
-        <Footer />
+        <Providers>
+          <Navbar />
+          <main className="flex-1 flex flex-col">
+            {children}
+          </main>
+          <Footer />
+        </Providers>
       </body>
     </html>
   );
