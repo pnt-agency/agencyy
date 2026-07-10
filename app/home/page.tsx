@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { CheckCircle2, Star, ShieldCheck, Users, Briefcase, Zap, ArrowRight, Globe, Clock, Award } from "lucide-react";
+import { CheckCircle2, Star, ShieldCheck, Users, Briefcase, Zap, ArrowRight } from "lucide-react";
 
 /* ─── Particle Canvas (Black & White) ─── */
 function ParticleCanvas({ dark = false }: { dark?: boolean }) {
@@ -84,36 +84,6 @@ function ParticleCanvas({ dark = false }: { dark?: boolean }) {
   return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none" />;
 }
 
-/* ─── Animated Counter ─── */
-function AnimatedCounter({ target, suffix = "", duration = 1800 }: { target: number; suffix?: string; duration?: number }) {
-  const [count, setCount] = useState(0);
-  const [started, setStarted] = useState(false);
-  const ref = useRef<HTMLSpanElement>(null);
-
-  useEffect(() => {
-    const obs = new IntersectionObserver(
-      ([e]) => { if (e.isIntersecting && !started) setStarted(true); },
-      { threshold: 0.5 }
-    );
-    if (ref.current) obs.observe(ref.current);
-    return () => obs.disconnect();
-  }, [started]);
-
-  useEffect(() => {
-    if (!started) return;
-    let cur = 0;
-    const step = target / (duration / 16);
-    const t = setInterval(() => {
-      cur += step;
-      if (cur >= target) { setCount(target); clearInterval(t); }
-      else setCount(Math.floor(cur));
-    }, 16);
-    return () => clearInterval(t);
-  }, [started, target, duration]);
-
-  return <span ref={ref}>{count}{suffix}</span>;
-}
-
 /* ─── Scroll Reveal ─── */
 function useScrollReveal() {
   useEffect(() => {
@@ -149,34 +119,18 @@ export default function Home() {
   useScrollReveal();
   const [tab, setTab] = useState<"employers" | "talent">("employers");
 
-  const defaultReviews = [
-    {
-      quote: "Agency Build completely transformed how we hire. We found an incredible Virtual Assistant within 48 hours who was already trained on core values.",
-      name: "Sarah Jenkins",
-      title: "CEO at TechStart",
-      init: "SJ",
-      featured: false,
-      type: "employer",
-    },
-    {
-      quote: "The Verified Badge process is no joke, our Project Manager hit the ground running on day one. Best hire we've made this year, bar none.",
-      name: "Marcus Thompson",
-      title: "COO at GrowthLabs",
-      init: "MT",
-      featured: true,
-      type: "employer",
-    },
-    {
-      quote: "Three months in and our remote team feels like family. Agency Build matched us with talent that aligned perfectly with our culture.",
-      name: "Amara Osei",
-      title: "Founder at Bloom Digital",
-      init: "AO",
-      featured: false,
-      type: "employer",
-    },
-  ];
+  type Review = {
+    quote: string;
+    name: string;
+    title: string;
+    init: string;
+    featured: boolean;
+    type: "employer" | "talent";
+    rating?: number;
+  };
 
-  const [reviews, setReviews] = useState(defaultReviews);
+  // Reviews are real user submissions only — no seeded/fabricated testimonials.
+  const [reviews, setReviews] = useState<Review[]>([]);
 
   useEffect(() => {
     const savedReviews = localStorage.getItem("agency-build-reviews");
@@ -225,7 +179,7 @@ export default function Home() {
               {/* Pill badge */}
               <div className="animate-fade-up inline-flex items-center gap-2 border border-black/15 rounded-full px-4 py-2 mb-8 bg-black/3">
                 <span className="w-1.5 h-1.5 rounded-full bg-black animate-blink" />
-                <span className="text-black text-sm font-semibold">Top 1% Verified Talent Network</span>
+                <span className="text-black text-sm font-semibold">Verified Remote Talent Network</span>
               </div>
 
               <h1 className="animate-fade-up delay-100 font-display text-6xl lg:text-[80px] font-black text-black leading-[1.0] tracking-tight mb-7">
@@ -236,7 +190,7 @@ export default function Home() {
               </h1>
 
               <p className="animate-fade-up delay-200 text-[17px] text-black/55 max-w-lg mb-10 leading-relaxed">
-                We screen, train, and verify top professionals globally so you can hire with total confidence, matched in 48 hours or less.
+                We screen, train, and verify remote professionals globally so you can hire with total confidence.
               </p>
 
               <div className="animate-fade-up delay-300 flex flex-col sm:flex-row gap-3">
@@ -253,46 +207,27 @@ export default function Home() {
                 </Link>
               </div>
 
-              {/* Social proof */}
-              <div className="animate-fade-up delay-400 flex items-center gap-5 mt-10">
-                <div className="flex -space-x-2.5">
-                  {["S","A","M","J","K"].map((l, i) => (
-                    <div key={i} className="w-9 h-9 rounded-full border-2 border-white bg-black flex items-center justify-center text-white text-xs font-bold shadow-sm">
-                      {l}
-                    </div>
-                  ))}
-                </div>
-                <div>
-                  <div className="flex gap-0.5 mb-0.5">
-                    {[0,1,2,3,4].map((i) => <Star key={i} className="w-3.5 h-3.5 fill-black text-black" />)}
-                  </div>
-                  <p className="text-xs text-black/50">Trusted by <span className="text-black font-semibold">500+ companies</span> worldwide</p>
-                </div>
-              </div>
             </div>
 
             {/* RIGHT – floating cards */}
             <div className="hidden lg:block relative h-[540px]">
-              {/* Main card */}
+              {/* Main card — real role categories we recruit for */}
               <div className="absolute top-6 left-4 right-4 bg-black text-white rounded-3xl p-6 shadow-2xl shadow-black/30 animate-float-slow">
                 <div className="flex items-center justify-between mb-5">
-                  <span className="text-white font-display font-bold">Latest Matches</span>
-                  <span className="bg-white/10 text-white text-xs px-3 py-1 rounded-full font-semibold border border-white/15">
-                    ● 48h matched
-                  </span>
+                  <span className="text-white font-display font-bold">Roles We Place</span>
                 </div>
                 {[
-                  { init: "S", name: "Sarah A.", role: "Virtual Assistant" },
-                  { init: "J", name: "James K.", role: "Project Manager" },
-                  { init: "A", name: "Amara O.", role: "Content Writer" },
-                ].map((p) => (
-                  <div key={p.name} className="flex items-center gap-3 py-3 border-b border-white/8 last:border-0 hover:bg-white/5 rounded-xl px-2 -mx-2 transition-colors cursor-default">
-                    <div className="w-10 h-10 rounded-xl bg-white text-black flex items-center justify-center font-black text-sm shrink-0">
-                      {p.init}
+                  "Virtual Assistant",
+                  "Customer Support",
+                  "Project Manager",
+                  "Content Writer",
+                ].map((r) => (
+                  <div key={r} className="flex items-center gap-3 py-3 border-b border-white/8 last:border-0 hover:bg-white/5 rounded-xl px-2 -mx-2 transition-colors cursor-default">
+                    <div className="w-10 h-10 rounded-xl bg-white/10 text-white flex items-center justify-center shrink-0">
+                      <Briefcase className="w-4 h-4" />
                     </div>
                     <div className="flex-1">
-                      <div className="text-white font-semibold text-sm">{p.name}</div>
-                      <div className="text-white/50 text-xs">{p.role}</div>
+                      <div className="text-white font-semibold text-sm">{r}</div>
                     </div>
                     <div className="flex items-center gap-1.5 text-xs text-white/50">
                       <ShieldCheck className="w-3.5 h-3.5 text-white" />
@@ -302,19 +237,13 @@ export default function Home() {
                 ))}
               </div>
 
-              {/* Stats card */}
-              <div className="absolute bottom-28 right-2 bg-white border-2 border-black/10 rounded-2xl px-5 py-4 shadow-xl animate-float-medium" style={{ animationDelay: "1s" }}>
-                <div className="text-3xl font-display font-black text-black">98%</div>
-                <div className="text-xs text-black/50 font-medium mt-0.5">Client Satisfaction</div>
-              </div>
-
               {/* Badge card */}
               <div className="absolute bottom-6 left-6 bg-black text-white rounded-2xl px-4 py-3 shadow-xl animate-float-slow" style={{ animationDelay: "0.5s" }}>
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-white" />
                   <span className="text-sm font-semibold">Verified Badge</span>
                 </div>
-                <div className="text-white/50 text-xs mt-0.5">5-Module Training Passed</div>
+                <div className="text-white/50 text-xs mt-0.5">5-Module Training</div>
               </div>
             </div>
           </div>
@@ -325,42 +254,12 @@ export default function Home() {
       </section>
 
       {/* ══════════════════════════════════════
-          STATS STRIP  –  white bg
-      ══════════════════════════════════════ */}
-      <section className="py-16 bg-white border-b border-black/8">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {[
-              { icon: <Users className="w-5 h-5" />,   val: 500, suffix: "+", label: "Placements Made" },
-              { icon: <Clock className="w-5 h-5" />,   val: 48,  suffix: "h", label: "Average Match Time" },
-              { icon: <Globe className="w-5 h-5" />,   val: 30,  suffix: "+", label: "Countries Served" },
-              { icon: <Award className="w-5 h-5" />,   val: 98,  suffix: "%", label: "Client Satisfaction" },
-            ].map((s, i) => (
-              <div
-                key={i}
-                className="reveal group text-center p-6 rounded-2xl border border-black/8 hover:border-black/20 hover:bg-black/2 transition-all duration-300 cursor-default"
-                style={{ transitionDelay: `${i * 80}ms` }}
-              >
-                <div className="w-10 h-10 mx-auto mb-3 rounded-xl bg-black/5 text-black flex items-center justify-center group-hover:bg-black group-hover:text-white transition-all duration-300">
-                  {s.icon}
-                </div>
-                <div className="text-3xl font-display font-black text-black mb-1">
-                  <AnimatedCounter target={s.val} suffix={s.suffix} />
-                </div>
-                <div className="text-xs text-black/45 font-medium">{s.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════
           SCROLLING MARQUEE STRIP
       ══════════════════════════════════════ */}
       <section className="py-5 bg-black overflow-hidden">
         <div className="flex gap-12 animate-marquee whitespace-nowrap">
           {Array.from({ length: 2 }).map((_, rep) =>
-            ["Vetted Skills", "Verified Badge", "48-Hour Placement", "Global Talent", "5-Module Training", "98% Satisfaction", "Integrity First", "Excellence Always"].map((t) => (
+            ["Vetted Skills", "Verified Badge", "Global Talent", "5-Module Training", "Integrity First", "Excellence Always"].map((t) => (
               <span key={`${rep}-${t}`} className="text-sm font-bold text-white/40 uppercase tracking-widest flex items-center gap-6">
                 {t} <span className="text-white/15">✦</span>
               </span>
@@ -404,8 +303,8 @@ export default function Home() {
               {
                 icon: <Zap className="w-6 h-6" />,
                 title: "Fast Placement",
-                desc: "Stop sifting through hundreds of resumes. We match you with the perfect verified professional in 48 hours, not weeks.",
-                tag: "48-hour guarantee",
+                desc: "Stop sifting through hundreds of resumes. We match you with the perfect verified professional quickly, not weeks later.",
+                tag: "Quick turnaround",
               },
             ].map((card, i) => (
               <div
@@ -505,7 +404,7 @@ export default function Home() {
               {tab === "employers" ? (
                 <>
                   <Step n={1} title="Share your needs" desc="Fill out a quick inquiry telling us about the role, budget, and requirements. Takes less than 5 minutes." />
-                  <Step n={2} title="Meet your match" desc="We handpick 2–3 verified candidates that perfectly fit your criteria and company culture within 48 hours." />
+                  <Step n={2} title="Meet your match" desc="We handpick 2–3 verified candidates that perfectly fit your criteria and company culture." />
                   <Step n={3} title="Hire and scale" desc="Interview, hire, and start working immediately. We handle initial onboarding and ongoing support." last />
                 </>
               ) : (
@@ -531,9 +430,16 @@ export default function Home() {
               <span className="text-black text-xs font-bold uppercase tracking-widest">Success Stories</span>
             </div>
             <h2 className="reveal font-display text-5xl font-black text-black leading-tight">
-              Don't just take<br />our word for it.
+              Don&apos;t just take<br />our word for it.
             </h2>
           </div>
+
+          {reviews.length === 0 && (
+            <div className="reveal rounded-3xl border-2 border-dashed border-black/10 p-12 text-center">
+              <p className="text-black/60 font-medium">No reviews yet.</p>
+              <p className="text-black/40 text-sm mt-1">Be the first to share your experience using the form below.</p>
+            </div>
+          )}
 
           <div className="grid md:grid-cols-3 gap-6">
             {reviews.map((t, i) => (
@@ -554,7 +460,7 @@ export default function Home() {
                 </div>
 
                 <blockquote className={`leading-relaxed mb-7 text-[15px] ${t.featured ? "text-white/70" : "text-black/55"}`}>
-                  "{t.quote}"
+                  &ldquo;{t.quote}&rdquo;
                 </blockquote>
 
                 <div className="flex items-center gap-3">
@@ -662,7 +568,7 @@ export default function Home() {
           </h2>
 
           <p className="reveal text-white/45 text-xl mb-12 max-w-lg mx-auto leading-relaxed">
-            Join hundreds of companies who found their ideal remote talent through Agency Build.
+            Find your ideal remote talent through Agency Build.
           </p>
 
           <div className="reveal flex flex-col sm:flex-row gap-4 justify-center">

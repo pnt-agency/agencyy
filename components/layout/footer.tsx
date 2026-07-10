@@ -19,22 +19,9 @@ export function Footer() {
                 AgencyBuild
               </span>
             </Link>
-            <p className="text-sm text-white/50 max-w-xs leading-relaxed mb-8">
+            <p className="text-sm text-white/50 max-w-xs leading-relaxed">
               Connecting screened, trained, and verified remote talent with companies worldwide. Excellence and integrity in every placement.
             </p>
-            {/* Mini stats */}
-            <div className="grid grid-cols-3 gap-4">
-              {[
-                { val: "500+", label: "Placements" },
-                { val: "48h",  label: "Avg Match" },
-                { val: "98%",  label: "Satisfaction" },
-              ].map((s) => (
-                <div key={s.label} className="border border-white/10 rounded-xl p-3 text-center">
-                  <div className="text-lg font-display font-black text-white">{s.val}</div>
-                  <div className="text-xs text-white/40 mt-0.5">{s.label}</div>
-                </div>
-              ))}
-            </div>
           </div>
 
           {/* Platform links */}

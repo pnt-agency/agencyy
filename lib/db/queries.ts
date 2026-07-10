@@ -1,4 +1,4 @@
-import { eq, desc, and, gte } from "drizzle-orm";
+import { eq, desc, and, gte, count, sql } from "drizzle-orm";
 import { db } from ".";
 import {
   talents,
@@ -146,6 +146,27 @@ export async function getUserByEmail(email: string): Promise<UserRow | null> {
     .from(users)
     .where(eq(users.email, email.trim().toLowerCase()));
   return user ?? null;
+}
+
+// A member's own lead records are matched by email against the public
+// application/hire tables (there's no FK link yet — see follow-ups). Matched
+// case-insensitively because those public forms don't normalize email casing.
+export async function countTalentApplicationsByEmail(email: string): Promise<number> {
+  const normalized = email.trim().toLowerCase();
+  const [row] = await db
+    .select({ value: count() })
+    .from(talents)
+    .where(sql`lower(${talents.email}) = ${normalized}`);
+  return row?.value ?? 0;
+}
+
+export async function countEmployerInquiriesByEmail(email: string): Promise<number> {
+  const normalized = email.trim().toLowerCase();
+  const [row] = await db
+    .select({ value: count() })
+    .from(employers)
+    .where(sql`lower(${employers.email}) = ${normalized}`);
+  return row?.value ?? 0;
 }
 
 export async function setUserRole(userId: string, role: string): Promise<void> {

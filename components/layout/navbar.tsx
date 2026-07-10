@@ -17,11 +17,11 @@ export function Navbar() {
   const role = session?.user?.role;
   const isEmployer = role === "employer";
   
-  const [notifications, setNotifications] = useState([
-    { id: 1, text: "Welcome to Agency Build! Complete your profile.", time: "1h ago", read: false },
-    { id: 2, text: "New job matches available for your skills.", time: "3h ago", read: false },
-    { id: 3, text: "Your recent application was viewed.", time: "1d ago", read: false },
-  ]);
+  // Real notifications aren't wired to a backend yet — start empty rather than
+  // showing fabricated items. The dropdown renders an honest empty state.
+  const [notifications, setNotifications] = useState<
+    { id: number; text: string; time: string; read: boolean }[]
+  >([]);
   const notifRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 

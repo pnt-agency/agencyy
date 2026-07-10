@@ -31,7 +31,7 @@ export default function AboutPage() {
                 Most talent platforms leave employers to do the heavy lifting: sifting through hundreds of resumes, interviewing unvetted candidates, and hoping for the best. On the flip side, talented professionals often struggle to stand out in a sea of applicants.
               </p>
               <p>
-                <strong>Agency Build sits in the middle as your trusted partner.</strong> We don't just connect; we curate. We thoroughly screen, test, and train every professional in our network before they ever meet a client. Think of us as your external HR department for remote hiring, lean, fast, and highly reliable.
+                <strong>Agency Build sits in the middle as your trusted partner.</strong> We don&apos;t just connect; we curate. We thoroughly screen, test, and train every professional in our network before they ever meet a client. Think of us as your external HR department for remote hiring, lean, fast, and highly reliable.
               </p>
             </div>
           </div>
@@ -45,7 +45,7 @@ export default function AboutPage() {
                 { step: "2", title: "Initial Screening Interview", text: "A video interview to assess communication skills and cultural fit." },
                 { step: "3", title: "Technical Assessment", text: "Role-specific tests to verify their technical capabilities." },
                 { step: "4", title: "Core Values Training", text: "Candidates complete our proprietary 5-module training on integrity and excellence." },
-                { step: "5", title: "Verified & Placed", text: "Only the top 5% who pass all stages receive the Verified Badge and enter our active placement pool." }
+                { step: "5", title: "Verified & Placed", text: "Only those who pass all stages receive the Verified Badge and enter our active placement pool." }
               ].map((item) => (
                 <div key={item.step} className="flex items-start gap-4">
                   <div className="w-8 h-8 rounded-full bg-navy text-white font-bold flex items-center justify-center shrink-0">
