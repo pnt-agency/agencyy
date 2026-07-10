@@ -6,6 +6,7 @@ import {
   getEmployerProfile,
   countTalentApplicationsByEmail,
   countEmployerInquiriesByEmail,
+  countInterestsForTalent,
 } from "@/lib/db/queries";
 import { DashboardView } from "@/components/member/dashboard-view";
 
@@ -23,13 +24,14 @@ export default async function DashboardPage() {
   const isEmployer = user.role === "employer";
 
   // Fetch the account row (for createdAt) and role-specific real metrics.
-  const [account, talentProfile, employerProfile, leadCount] = await Promise.all([
+  const [account, talentProfile, employerProfile, leadCount, interestCount] = await Promise.all([
     getUserByEmail(user.email),
     isEmployer ? Promise.resolve(null) : getTalentProfile(user.id),
     isEmployer ? getEmployerProfile(user.id) : Promise.resolve(null),
     isEmployer
       ? countEmployerInquiriesByEmail(user.email)
       : countTalentApplicationsByEmail(user.email),
+    isEmployer ? Promise.resolve(0) : countInterestsForTalent(user.id),
   ]);
 
   const profileCompleteness = isEmployer
@@ -42,6 +44,7 @@ export default async function DashboardPage() {
     : completeness([
         talentProfile?.phone,
         talentProfile?.country,
+        talentProfile?.role,
         talentProfile?.bio,
         talentProfile?.skills,
         talentProfile?.portfolio,
@@ -63,6 +66,8 @@ export default async function DashboardPage() {
       profileCompleteness={profileCompleteness}
       leadCount={leadCount}
       emailVerified={Boolean(account?.emailVerified)}
+      listed={Boolean(talentProfile?.verified)}
+      interestCount={interestCount}
     />
   );
 }

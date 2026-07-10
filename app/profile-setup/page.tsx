@@ -24,6 +24,7 @@ export default async function ProfileSetupPage() {
     roleLocked,
     phone: talent?.phone ?? employer?.phone ?? "",
     country: talent?.country ?? employer?.country ?? "",
+    talentRole: talent?.role ?? "",
     bio: talent?.bio ?? employer?.bio ?? "",
     skills: talent?.skills ?? "",
     portfolio: talent?.portfolio ?? "",

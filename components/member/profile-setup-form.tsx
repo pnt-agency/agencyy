@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Briefcase, User, CheckCircle2 } from "lucide-react";
 import { saveMemberProfile } from "@/app/auth-actions";
+import { TALENT_ROLES } from "@/lib/roles";
 
 type Role = "talent" | "employer";
 
@@ -13,6 +14,7 @@ export type ProfileInitial = {
   roleLocked: boolean;
   phone: string;
   country: string;
+  talentRole: string;
   bio: string;
   skills: string;
   portfolio: string;
@@ -35,6 +37,7 @@ export function ProfileSetupForm({ initial }: { initial: ProfileInitial }) {
 
   const [phone, setPhone] = useState(initial.phone);
   const [country, setCountry] = useState(initial.country);
+  const [talentRole, setTalentRole] = useState(initial.talentRole);
   const [bio, setBio] = useState(initial.bio);
   const [skills, setSkills] = useState(initial.skills);
   const [portfolio, setPortfolio] = useState(initial.portfolio);
@@ -46,7 +49,7 @@ export function ProfileSetupForm({ initial }: { initial: ProfileInitial }) {
 
     const payload =
       role === "talent"
-        ? { role, talent: { phone, country, bio, skills, portfolio } }
+        ? { role, talent: { phone, country, role: talentRole, bio, skills, portfolio } }
         : { role, employer: { companyName: company, phone, country, bio } };
 
     startTransition(async () => {
@@ -123,6 +126,15 @@ export function ProfileSetupForm({ initial }: { initial: ProfileInitial }) {
               </div>
             ) : (
               <div className="animate-fade-up space-y-5">
+                <div>
+                  <label htmlFor="talentRole" className="block text-sm font-bold text-gray-700 mb-1.5">Primary Role</label>
+                  <select id="talentRole" value={talentRole} onChange={(e) => setTalentRole(e.target.value)} className={`${inputClass} bg-white`}>
+                    <option value="">Select your primary role…</option>
+                    {TALENT_ROLES.map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label htmlFor="portfolio" className="block text-sm font-bold text-gray-700 mb-1.5">Portfolio / LinkedIn URL</label>
                   <input id="portfolio" type="url" value={portfolio} onChange={(e) => setPortfolio(e.target.value)} placeholder="https://linkedin.com/in/..." className={inputClass} />

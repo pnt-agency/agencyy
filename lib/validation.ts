@@ -1,4 +1,5 @@
 import * as z from "zod";
+import { TALENT_ROLES } from "./roles";
 
 // Server-authoritative schemas for the public submission actions.
 // The apply/hire pages validate on the client for UX; these are re-checked
@@ -68,6 +69,7 @@ export const registerMemberSchema = z.object({
 export const talentProfileSchema = z.object({
   phone: z.string().trim().max(40).optional().or(z.literal("")),
   country: z.string().trim().max(80).optional().or(z.literal("")),
+  role: z.enum(TALENT_ROLES).optional().or(z.literal("")),
   bio: z.string().trim().max(5000).optional().or(z.literal("")),
   skills: z.string().trim().max(1000).optional().or(z.literal("")),
   portfolio: z
@@ -101,6 +103,11 @@ export const requestResetSchema = z.object({
 export const resetPasswordSchema = z.object({
   token: z.string().min(1),
   password: z.string().min(8, "Password must be at least 8 characters").max(200),
+});
+
+export const expressInterestSchema = z.object({
+  talentId: z.string().uuid(),
+  message: z.string().trim().max(2000).optional().or(z.literal("")),
 });
 
 export type RegisterMemberInput = z.infer<typeof registerMemberSchema>;

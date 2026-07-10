@@ -130,8 +130,12 @@ export default async function AdminDashboard({
             <h1 className="text-3xl font-bold text-navy">Admin Dashboard</h1>
             <p className="text-gray-600">Welcome back, {session.user?.name}</p>
           </div>
-          {/* Export always covers ALL records, not the filtered/paged view. */}
-          <ExportDataButton talents={allTalents} employers={allEmployers} />
+          <div className="flex items-center gap-4">
+            <Link href="/admin/directory" className="text-sm font-semibold text-gray-600 hover:text-black">Talent Directory</Link>
+            <Link href="/admin/interests" className="text-sm font-semibold text-gray-600 hover:text-black">Interests</Link>
+            {/* Export always covers ALL records, not the filtered/paged view. */}
+            <ExportDataButton talents={allTalents} employers={allEmployers} />
+          </div>
         </div>
 
         {/* Talent Tracker */}

@@ -1,4 +1,5 @@
-import { eq, desc, and, gte, count, sql } from "drizzle-orm";
+import { eq, desc, and, gte, count, sql, ilike } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { db } from ".";
 import {
   talents,
@@ -7,12 +8,14 @@ import {
   talentProfiles,
   employerProfiles,
   authTokens,
+  talentInterests,
   type TalentRow,
   type EmployerRow,
   type UserRow,
   type TalentProfileRow,
   type EmployerProfileRow,
   type AuthTokenRow,
+  type TalentInterestRow,
 } from "./schema";
 import type { Talent, Employer } from "@/types";
 
@@ -306,4 +309,169 @@ export async function upsertEmployerProfile(
     })
     .returning();
   return profile;
+}
+
+// ---------- Talent directory (marketplace) ----------
+
+// Public directory shape — deliberately excludes email/phone (admin-mediated).
+export type DirectoryTalent = {
+  userId: string;
+  name: string;
+  role: string | null;
+  skills: string | null;
+  bio: string | null;
+  portfolio: string | null;
+  country: string | null;
+};
+
+const directoryColumns = {
+  userId: talentProfiles.userId,
+  name: users.name,
+  role: talentProfiles.role,
+  skills: talentProfiles.skills,
+  bio: talentProfiles.bio,
+  portfolio: talentProfiles.portfolio,
+  country: talentProfiles.country,
+};
+
+export async function listVerifiedTalent(
+  filters: { role?: string; skill?: string } = {}
+): Promise<DirectoryTalent[]> {
+  const conds = [eq(talentProfiles.verified, true)];
+  if (filters.role) conds.push(eq(talentProfiles.role, filters.role));
+  if (filters.skill) conds.push(ilike(talentProfiles.skills, `%${filters.skill}%`));
+
+  return db
+    .select(directoryColumns)
+    .from(talentProfiles)
+    .innerJoin(users, eq(users.id, talentProfiles.userId))
+    .where(and(...conds))
+    .orderBy(desc(talentProfiles.updatedAt));
+}
+
+export async function getVerifiedTalentById(userId: string): Promise<DirectoryTalent | null> {
+  const [row] = await db
+    .select(directoryColumns)
+    .from(talentProfiles)
+    .innerJoin(users, eq(users.id, talentProfiles.userId))
+    .where(and(eq(talentProfiles.userId, userId), eq(talentProfiles.verified, true)));
+  return row ?? null;
+}
+
+// ---------- Interests ----------
+
+export async function hasPendingInterest(employerId: string, talentId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: talentInterests.id })
+    .from(talentInterests)
+    .where(
+      and(
+        eq(talentInterests.employerId, employerId),
+        eq(talentInterests.talentId, talentId),
+        eq(talentInterests.status, "Pending")
+      )
+    )
+    .limit(1);
+  return Boolean(row);
+}
+
+export async function createInterest(data: {
+  employerId: string;
+  talentId: string;
+  message: string | null;
+}): Promise<TalentInterestRow> {
+  const [row] = await db.insert(talentInterests).values(data).returning();
+  return row;
+}
+
+export async function countInterestsForTalent(talentId: string): Promise<number> {
+  const [row] = await db
+    .select({ value: count() })
+    .from(talentInterests)
+    .where(eq(talentInterests.talentId, talentId));
+  return row?.value ?? 0;
+}
+
+export type InterestListItem = {
+  id: string;
+  message: string | null;
+  status: TalentInterestRow["status"];
+  createdAt: Date;
+  employerName: string;
+  employerEmail: string;
+  talentName: string;
+  talentEmail: string;
+};
+
+export async function listInterests(): Promise<InterestListItem[]> {
+  const employerUser = alias(users, "employer_user");
+  const talentUser = alias(users, "talent_user");
+  return db
+    .select({
+      id: talentInterests.id,
+      message: talentInterests.message,
+      status: talentInterests.status,
+      createdAt: talentInterests.createdAt,
+      employerName: employerUser.name,
+      employerEmail: employerUser.email,
+      talentName: talentUser.name,
+      talentEmail: talentUser.email,
+    })
+    .from(talentInterests)
+    .innerJoin(employerUser, eq(employerUser.id, talentInterests.employerId))
+    .innerJoin(talentUser, eq(talentUser.id, talentInterests.talentId))
+    .orderBy(desc(talentInterests.createdAt));
+}
+
+export async function updateInterestStatus(
+  id: string,
+  status: TalentInterestRow["status"]
+): Promise<TalentInterestRow | null> {
+  const [row] = await db
+    .update(talentInterests)
+    .set({ status, updatedAt: new Date() })
+    .where(eq(talentInterests.id, id))
+    .returning();
+  return row ?? null;
+}
+
+// ---------- Admin: talent account verification ----------
+
+export type TalentAccount = {
+  userId: string;
+  name: string;
+  email: string;
+  role: string | null;
+  skills: string | null;
+  verified: boolean;
+  createdAt: Date;
+};
+
+export async function listTalentAccounts(): Promise<TalentAccount[]> {
+  const rows = await db
+    .select({
+      userId: users.id,
+      name: users.name,
+      email: users.email,
+      role: talentProfiles.role,
+      skills: talentProfiles.skills,
+      verified: talentProfiles.verified,
+      createdAt: users.createdAt,
+    })
+    .from(users)
+    .leftJoin(talentProfiles, eq(talentProfiles.userId, users.id))
+    .where(eq(users.role, "talent"))
+    .orderBy(desc(users.createdAt));
+  // verified is null when the talent has no profile row yet — treat as false.
+  return rows.map((r) => ({ ...r, verified: r.verified ?? false }));
+}
+
+export async function setTalentVerified(userId: string, verified: boolean): Promise<void> {
+  await db
+    .insert(talentProfiles)
+    .values({ userId, verified })
+    .onConflictDoUpdate({
+      target: talentProfiles.userId,
+      set: { verified, updatedAt: new Date() },
+    });
 }

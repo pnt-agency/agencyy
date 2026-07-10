@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Briefcase, FileText, Calendar, ChevronRight, CheckCircle2, TrendingUp, MailWarning } from "lucide-react";
+import { Briefcase, FileText, Calendar, ChevronRight, CheckCircle2, TrendingUp, MailWarning, ShieldCheck, Clock, Users } from "lucide-react";
 import Link from "next/link";
 import { resendVerificationEmail } from "@/app/auth-actions";
 
@@ -13,6 +13,8 @@ type DashboardViewProps = {
   profileCompleteness: number;
   leadCount: number;
   emailVerified: boolean;
+  listed?: boolean;
+  interestCount?: number;
 };
 
 export function DashboardView({
@@ -23,6 +25,8 @@ export function DashboardView({
   profileCompleteness,
   leadCount,
   emailVerified,
+  listed = false,
+  interestCount = 0,
 }: DashboardViewProps) {
   const isTalent = role !== "employer";
 
@@ -48,6 +52,7 @@ export function DashboardView({
       nextSteps.push({ label: "Submit your talent application", href: "/apply" });
     }
   } else {
+    nextSteps.push({ label: "Browse verified talent", href: "/talent" });
     nextSteps.push({ label: "Post a role to hire talent", href: "/hire" });
   }
 
@@ -77,6 +82,31 @@ export function DashboardView({
                 {isResending ? "Sending..." : resendState === "error" ? "Failed — try again" : "Resend email"}
               </button>
             )}
+          </div>
+        )}
+
+        {/* Talent: directory listing status */}
+        {isTalent && (
+          listed ? (
+            <div className="mb-4 flex items-center gap-3 rounded-2xl border border-green-200 bg-green-50 px-5 py-4">
+              <ShieldCheck className="w-5 h-5 text-green-600 shrink-0" />
+              <p className="text-sm text-green-900">Your profile is <span className="font-semibold">live in the talent directory</span> — employers can discover you.</p>
+            </div>
+          ) : (
+            <div className="mb-4 flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-5 py-4">
+              <Clock className="w-5 h-5 text-gray-500 shrink-0" />
+              <p className="text-sm text-gray-700">Your profile is <span className="font-semibold">pending review</span>. Our team verifies profiles before listing them in the directory.</p>
+            </div>
+          )
+        )}
+
+        {/* Talent: interest received (read-only — connections are admin-mediated) */}
+        {isTalent && interestCount > 0 && (
+          <div className="mb-6 flex items-center gap-3 rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4">
+            <Users className="w-5 h-5 text-blue-600 shrink-0" />
+            <p className="text-sm text-blue-900">
+              <span className="font-semibold">{interestCount} employer{interestCount === 1 ? "" : "s"}</span> {interestCount === 1 ? "has" : "have"} expressed interest in you — our team will reach out to make the introduction.
+            </p>
           </div>
         )}
 
@@ -196,6 +226,7 @@ export function DashboardView({
                     ]
                   : [
                       { label: "My Profile", href: "/profile-setup" },
+                      { label: "Browse Talent", href: "/talent" },
                       { label: "Post a Job", href: "/hire" },
                     ]
                 ).map((link) => (

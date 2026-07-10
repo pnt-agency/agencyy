@@ -121,6 +121,7 @@ export async function saveMemberProfile(input: unknown): Promise<ActionResult> {
       await upsertTalentProfile(user.id, {
         phone: orNull(t.phone),
         country: orNull(t.country),
+        role: orNull(t.role),
         bio: orNull(t.bio),
         skills: orNull(t.skills),
         portfolio: orNull(t.portfolio),

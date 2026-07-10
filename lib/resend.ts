@@ -209,3 +209,36 @@ export async function sendAdminEmployerNotification(
 
   return resendData;
 }
+
+export async function sendAdminInterestNotification(data: {
+  employerName: string;
+  talentName: string;
+  message: string | null;
+}) {
+  const to = process.env.ADMIN_NOTIFICATION_EMAIL;
+  if (!resend || !to) {
+    return null;
+  }
+
+  const { data: resendData, error } = await resend.emails.send({
+    from: "Agency Build <onboarding@resend.dev>",
+    to,
+    subject: `New interest: ${data.employerName} → ${data.talentName}`,
+    html: `
+      <div>
+        <h2>New talent interest</h2>
+        <p><strong>Employer:</strong> ${esc(data.employerName)}</p>
+        <p><strong>Talent:</strong> ${esc(data.talentName)}</p>
+        <p><strong>Message:</strong><br />${esc(data.message || "-")}</p>
+        <p>Review it and make the intro from the admin dashboard.</p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("Resend Error:", error);
+    throw new Error(`Resend failed: ${error.message}`);
+  }
+
+  return resendData;
+}

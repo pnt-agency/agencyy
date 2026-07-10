@@ -1,10 +1,10 @@
 "use server";
 
-import { createTalentRecord, createEmployerRecord, updateTalentRecord, updateEmployerRecord, updateTalentMeta, updateEmployerMeta, hasRecentTalentSubmission, hasRecentEmployerSubmission } from "@/lib/db/queries";
-import { sendTalentConfirmationEmail, sendEmployerConfirmationEmail, sendAdminTalentNotification, sendAdminEmployerNotification } from "@/lib/resend";
+import { createTalentRecord, createEmployerRecord, updateTalentRecord, updateEmployerRecord, updateTalentMeta, updateEmployerMeta, hasRecentTalentSubmission, hasRecentEmployerSubmission, getVerifiedTalentById, hasPendingInterest, createInterest, setTalentVerified, updateInterestStatus } from "@/lib/db/queries";
+import { sendTalentConfirmationEmail, sendEmployerConfirmationEmail, sendAdminTalentNotification, sendAdminEmployerNotification, sendAdminInterestNotification } from "@/lib/resend";
 import { Talent, Employer } from "@/types";
-import { getAdminSession } from "@/lib/auth";
-import { talentInputSchema, employerInputSchema } from "@/lib/validation";
+import { getAdminSession, getCurrentUser } from "@/lib/auth";
+import { talentInputSchema, employerInputSchema, expressInterestSchema } from "@/lib/validation";
 import { revalidatePath } from "next/cache";
 
 export async function submitTalentApplication(data: Omit<Talent, "id" | "status" | "createdAt">) {
@@ -92,6 +92,88 @@ function toMetaData(patch: MetaPatch): { notes?: string | null; followUpDate?: D
     data.followUpDate = patch.followUpDate ? new Date(patch.followUpDate) : null;
   }
   return data;
+}
+
+// ---------- Admin: verify talent + move interest status ----------
+
+export async function setTalentVerifiedAction(userId: string, verified: boolean) {
+  if (!(await requireAdminSession())) {
+    return { success: false, error: "Not authenticated." };
+  }
+  try {
+    await setTalentVerified(userId, verified);
+    revalidatePath("/admin/directory");
+    revalidatePath("/talent");
+    return { success: true };
+  } catch (error) {
+    console.error("Error setting talent verified:", error);
+    return { success: false, error: "Failed to update." };
+  }
+}
+
+export async function updateInterestStatusAction(
+  id: string,
+  status: "Pending" | "Intro Made" | "Closed"
+) {
+  if (!(await requireAdminSession())) {
+    return { success: false, error: "Not authenticated." };
+  }
+  try {
+    await updateInterestStatus(id, status);
+    revalidatePath("/admin/interests");
+    return { success: true };
+  } catch (error) {
+    console.error("Error updating interest status:", error);
+    return { success: false, error: "Failed to update status." };
+  }
+}
+
+// ---------- Marketplace: employer expresses interest in a talent ----------
+
+export async function expressInterest(
+  input: unknown
+): Promise<{ success: true } | { success: false; error: string }> {
+  const user = await getCurrentUser();
+  if (!user || user.role !== "employer") {
+    return { success: false, error: "Only employer accounts can express interest." };
+  }
+
+  const parsed = expressInterestSchema.safeParse(input);
+  if (!parsed.success) {
+    return { success: false, error: "Invalid request." };
+  }
+  const { talentId, message } = parsed.data;
+
+  // Only verified, listed talent can be contacted through the directory.
+  const talent = await getVerifiedTalentById(talentId);
+  if (!talent) {
+    return { success: false, error: "That talent is no longer available." };
+  }
+
+  if (await hasPendingInterest(user.id, talentId)) {
+    return { success: false, error: "You already have a pending interest for this talent." };
+  }
+
+  try {
+    await createInterest({ employerId: user.id, talentId, message: message?.trim() || null });
+  } catch (error) {
+    console.error("Error creating interest:", error);
+    return { success: false, error: "Could not submit your interest. Please try again." };
+  }
+
+  // Notify the admin team (non-critical — the intro is admin-mediated).
+  try {
+    await sendAdminInterestNotification({
+      employerName: user.name ?? user.email ?? "An employer",
+      talentName: talent.name,
+      message: message?.trim() || null,
+    });
+  } catch (error) {
+    console.warn("Interest notification could not be sent:", error);
+  }
+
+  revalidatePath("/admin/interests");
+  return { success: true };
 }
 
 export async function updateTalentDetails(id: string, patch: MetaPatch) {

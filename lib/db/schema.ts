@@ -4,6 +4,7 @@ import {
   text,
   integer,
   timestamp,
+  boolean,
   pgEnum,
 } from "drizzle-orm/pg-core";
 
@@ -23,6 +24,12 @@ export const employerStatusEnum = pgEnum("employer_status", [
   "In Progress",
   "Closed Won",
   "Closed Lost",
+]);
+
+export const interestStatusEnum = pgEnum("interest_status", [
+  "Pending",
+  "Intro Made",
+  "Closed",
 ]);
 
 // ---------- Tables ----------
@@ -108,9 +115,13 @@ export const talentProfiles = pgTable("talent_profiles", {
     .references(() => users.id, { onDelete: "cascade" }),
   phone: text("phone"),
   country: text("country"),
+  // Primary role (from TALENT_ROLES) — used for directory filtering.
+  role: text("role"),
   bio: text("bio"),
   skills: text("skills"),
   portfolio: text("portfolio"),
+  // Admin-controlled: only verified profiles appear in the employer directory.
+  verified: boolean("verified").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -137,6 +148,26 @@ export const employerProfiles = pgTable("employer_profiles", {
     .defaultNow(),
 });
 
+// An employer expressing interest in a specific talent. Connections are
+// admin-mediated: an admin reviews these and makes the intro.
+export const talentInterests = pgTable("talent_interests", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  employerId: uuid("employer_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  talentId: uuid("talent_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  message: text("message"),
+  status: interestStatusEnum("status").notNull().default("Pending"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export type TalentRow = typeof talents.$inferSelect;
 export type NewTalentRow = typeof talents.$inferInsert;
 export type EmployerRow = typeof employers.$inferSelect;
@@ -149,3 +180,5 @@ export type EmployerProfileRow = typeof employerProfiles.$inferSelect;
 export type NewEmployerProfileRow = typeof employerProfiles.$inferInsert;
 export type AuthTokenRow = typeof authTokens.$inferSelect;
 export type NewAuthTokenRow = typeof authTokens.$inferInsert;
+export type TalentInterestRow = typeof talentInterests.$inferSelect;
+export type NewTalentInterestRow = typeof talentInterests.$inferInsert;
