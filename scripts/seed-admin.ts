@@ -29,6 +29,13 @@ async function main() {
   const email = rawEmail.trim().toLowerCase();
   const passwordHash = await bcrypt.hash(password, 12);
 
+  // Mark the address verified. Seeding requires database credentials, so the
+  // operator running this is already vouching for the account — and a seeded
+  // admin has no other route to verified, since receiving the confirmation
+  // email depends on Resend having a verified sending domain. Without this they
+  // sit behind a "check your inbox" banner for a mail that never arrives.
+  const emailVerified = new Date();
+
   // Match case-insensitively so this repairs (rather than duplicates) any admin
   // seeded before that normalization existed.
   const [existing] = await db
@@ -39,11 +46,19 @@ async function main() {
   if (existing) {
     await db
       .update(users)
-      .set({ name, email, passwordHash, role: "admin" })
+      .set({
+        name,
+        email,
+        passwordHash,
+        role: "admin",
+        // Keep the original verification timestamp if there is one — re-seeding
+        // to change a password shouldn't look like a fresh verification.
+        emailVerified: existing.emailVerified ?? emailVerified,
+      })
       .where(eq(users.id, existing.id));
     console.log(`Updated existing admin user: ${email}`);
   } else {
-    await db.insert(users).values({ name, email, passwordHash, role: "admin" });
+    await db.insert(users).values({ name, email, passwordHash, role: "admin", emailVerified });
     console.log(`Created admin user: ${email}`);
   }
 

@@ -201,6 +201,7 @@ deploy without these fails at build time, not at runtime.
 | `NEXTAUTH_SECRET` | `openssl rand -base64 32` — a fresh one, not your local value |
 | `NEXTAUTH_URL` | The full production URL, e.g. `https://your-app.vercel.app` |
 | `RESEND_API_KEY` | From the Resend dashboard |
+| `EMAIL_FROM` | Optional — see "Email without a verified domain" below |
 | `ADMIN_NOTIFICATION_EMAIL` | Where new application/inquiry alerts go |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Optional — omit both to hide the Google button |
 
@@ -229,6 +230,33 @@ https://your-app.vercel.app/api/auth/callback/google
 
 Sign-in fails with `redirect_uri_mismatch` until this exactly matches the
 deployed domain.
+
+### Email without a verified domain
+
+With no domain verified in Resend, the app falls back to the sandbox sender
+`onboarding@resend.dev`. Resend accepts that sender from anyone, but **only
+delivers to the email address your Resend account is registered under** —
+anything else is rejected with a 403.
+
+Nothing breaks. Email is treated as non-critical throughout: applications and
+inquiries still save, accounts still work, and the app logs a warning instead of
+failing. But while on the sandbox sender:
+
+- **Admin alerts work** — set `ADMIN_NOTIFICATION_EMAIL` to your Resend account
+  email and new application/inquiry notifications arrive normally.
+- **Member email doesn't reach anyone else.** Confirmations and verification
+  links are rejected. The dashboard's verification banner is informational, not
+  blocking, so members can still use their account.
+- **Password reset is the sharp edge.** `requestPasswordReset` always reports
+  success regardless — deliberately, so the endpoint can't be used to enumerate
+  accounts — so the user is told to check an inbox that will never receive the
+  mail. There is no way to reset a password until a domain is verified.
+- **Seeded admins sidestep all of it.** `npm run seed:admin` marks the address
+  verified, so they get no banner and never need a delivered email.
+
+To send to real users, verify a domain at [resend.com/domains](https://resend.com/domains)
+(add the DNS records it gives you), then set `EMAIL_FROM` to an address on that
+domain, e.g. `Agency Build <noreply@yourdomain.com>`. No code change is needed.
 
 ### Subsequent schema changes
 

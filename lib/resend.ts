@@ -6,6 +6,16 @@ import type { Talent, Employer } from "@/types";
 // gracefully no-op when `resend` is null.
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
+// Sender for every outbound email. Defaults to Resend's shared sandbox address,
+// which needs no domain setup but comes with a hard limitation: Resend only
+// accepts sends addressed to the email your Resend account is registered under.
+// Mail to anyone else is rejected, so member-facing email (confirmations,
+// verification, password resets) silently fails until a domain is verified.
+// Once you've verified one at resend.com/domains, set EMAIL_FROM to an address
+// on it (e.g. "Agency Build <noreply@yourdomain.com>") and all of it starts
+// working — no code change.
+const EMAIL_FROM = process.env.EMAIL_FROM ?? "Agency Build <onboarding@resend.dev>";
+
 // Basic HTML escaping so user-supplied fields can't inject markup into the
 // notification emails we send to ourselves.
 function esc(value: string): string {
@@ -22,7 +32,7 @@ export async function sendVerificationEmail(email: string, name: string, url: st
   }
 
   const { data, error } = await resend.emails.send({
-    from: "Agency Build <onboarding@resend.dev>",
+    from: EMAIL_FROM,
     to: email,
     subject: "Verify your email - Agency Build",
     html: `
@@ -50,7 +60,7 @@ export async function sendPasswordResetEmail(email: string, url: string) {
   }
 
   const { data, error } = await resend.emails.send({
-    from: "Agency Build <onboarding@resend.dev>",
+    from: EMAIL_FROM,
     to: email,
     subject: "Reset your password - Agency Build",
     html: `
@@ -78,8 +88,8 @@ export async function sendTalentConfirmationEmail(email: string, name: string) {
   }
 
   const { data: resendData, error } = await resend.emails.send({
-    from: "Agency Build <onboarding@resend.dev>", // Changed for testing without verified domain
-    to: email, // NOTE: Resend test emails can only be sent to the email registered on your Resend account
+    from: EMAIL_FROM,
+    to: email,
     subject: "Application Received - Agency Build",
     html: `
       <div>
@@ -111,7 +121,7 @@ export async function sendAdminTalentNotification(
   }
 
   const { data: resendData, error } = await resend.emails.send({
-    from: "Agency Build <onboarding@resend.dev>",
+    from: EMAIL_FROM,
     to,
     subject: `New talent application: ${data.name} (${data.role})`,
     html: `
@@ -148,8 +158,8 @@ export async function sendEmployerConfirmationEmail(email: string, contactName: 
   }
 
   const { data: resendData, error } = await resend.emails.send({
-    from: "Agency Build <onboarding@resend.dev>", // Changed for testing without verified domain
-    to: email, // NOTE: Resend test emails can only be sent to the email registered on your Resend account
+    from: EMAIL_FROM,
+    to: email,
     subject: "Inquiry Received - Agency Build",
     html: `
       <div>
@@ -180,7 +190,7 @@ export async function sendAdminEmployerNotification(
   }
 
   const { data: resendData, error } = await resend.emails.send({
-    from: "Agency Build <onboarding@resend.dev>",
+    from: EMAIL_FROM,
     to,
     subject: `New employer inquiry: ${data.companyName} (${data.roleNeeded})`,
     html: `
@@ -221,7 +231,7 @@ export async function sendAdminInterestNotification(data: {
   }
 
   const { data: resendData, error } = await resend.emails.send({
-    from: "Agency Build <onboarding@resend.dev>",
+    from: EMAIL_FROM,
     to,
     subject: `New interest: ${data.employerName} → ${data.talentName}`,
     html: `
