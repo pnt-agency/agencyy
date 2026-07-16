@@ -11,6 +11,7 @@ import {
 } from "@/lib/validation";
 import {
   getUserByEmail,
+  getUserById,
   createUser,
   setUserRole,
   setUserPassword,
@@ -20,6 +21,7 @@ import {
   createAuthToken,
   findValidAuthToken,
   deleteAuthToken,
+  claimLeadsForUser,
 } from "@/lib/db/queries";
 import {
   generateToken,
@@ -78,6 +80,14 @@ export async function registerMember(data: unknown): Promise<ActionResult> {
   } catch (error) {
     console.error("Error registering member:", error);
     return { success: false, error: "Could not create your account. Please try again." };
+  }
+
+  // Adopt any leads this person submitted before signing up, so their dashboard
+  // isn't empty on day one. Non-critical — the count is cosmetic.
+  try {
+    await claimLeadsForUser(user.id, user.email);
+  } catch (error) {
+    console.warn("Could not claim existing leads for new account:", error);
   }
 
   // Send the verification email (non-critical — account still works if it fails).
@@ -161,6 +171,16 @@ export async function verifyEmail(rawToken: string): Promise<ActionResult> {
   }
   await markEmailVerified(token.userId);
   await deleteAuthToken(token.id);
+
+  // Claim again on verify: this catches Google signups (which never hit
+  // registerMember) and anyone who applied between signing up and verifying.
+  try {
+    const user = await getUserById(token.userId);
+    if (user) await claimLeadsForUser(user.id, user.email);
+  } catch (error) {
+    console.warn("Could not claim existing leads on verify:", error);
+  }
+
   revalidatePath("/dashboard");
   return { success: true };
 }

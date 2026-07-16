@@ -6,6 +6,7 @@ import {
   timestamp,
   boolean,
   pgEnum,
+  index,
 } from "drizzle-orm/pg-core";
 
 // ---------- Enums ----------
@@ -36,6 +37,12 @@ export const interestStatusEnum = pgEnum("interest_status", [
 
 export const talents = pgTable("talents", {
   id: uuid("id").primaryKey().defaultRandom(),
+  // The member account this lead belongs to, when it can be attributed to one:
+  // set at submit time from the session, or claimed later by email match on
+  // register/verify. Null for leads from visitors who never made an account.
+  // Nulled rather than deleted if the account goes away — the lead is still
+  // ours to work.
+  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
   name: text("name").notNull(),
   email: text("email").notNull(),
   phone: text("phone").notNull(),
@@ -56,6 +63,8 @@ export const talents = pgTable("talents", {
 
 export const employers = pgTable("employers", {
   id: uuid("id").primaryKey().defaultRandom(),
+  // See talents.userId — same attribution rules.
+  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
   companyName: text("company_name").notNull(),
   contactName: text("contact_name").notNull(),
   email: text("email").notNull(),
@@ -168,6 +177,28 @@ export const talentInterests = pgTable("talent_interests", {
     .defaultNow(),
 });
 
+// In-app notifications for the navbar bell. Written by server actions when
+// something happens that a member should know about; read only by the owner.
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    body: text("body").notNull(),
+    // Where the bell item links to, e.g. "/dashboard". Null renders as plain text.
+    href: text("href"),
+    // Null until the owner reads it — doubles as the unread flag and a timestamp.
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  // The only read path is "newest N for this user".
+  (table) => [index("notifications_user_created_idx").on(table.userId, table.createdAt)]
+);
+
 export type TalentRow = typeof talents.$inferSelect;
 export type NewTalentRow = typeof talents.$inferInsert;
 export type EmployerRow = typeof employers.$inferSelect;
@@ -182,3 +213,5 @@ export type AuthTokenRow = typeof authTokens.$inferSelect;
 export type NewAuthTokenRow = typeof authTokens.$inferInsert;
 export type TalentInterestRow = typeof talentInterests.$inferSelect;
 export type NewTalentInterestRow = typeof talentInterests.$inferInsert;
+export type NotificationRow = typeof notifications.$inferSelect;
+export type NewNotificationRow = typeof notifications.$inferInsert;

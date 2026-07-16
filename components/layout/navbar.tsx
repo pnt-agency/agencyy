@@ -5,6 +5,13 @@ import { useState, useEffect, useRef } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { Bell, CheckCheck, X } from "lucide-react";
+import {
+  getMyNotifications,
+  markAllNotificationsReadAction,
+  dismissNotificationAction,
+  type NotificationItem,
+} from "@/app/notification-actions";
+import { formatRelativeTime } from "@/lib/utils";
 
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -17,24 +24,48 @@ export function Navbar() {
   const role = session?.user?.role;
   const isEmployer = role === "employer";
   
-  // Real notifications aren't wired to a backend yet — start empty rather than
-  // showing fabricated items. The dropdown renders an honest empty state.
-  const [notifications, setNotifications] = useState<
-    { id: number; text: string; time: string; read: boolean }[]
-  >([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const notifRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  const markAllAsRead = () => {
+  // Re-fetch on navigation: notifications are written by server actions on other
+  // pages, and this is the cheapest way to notice without polling. Nothing to
+  // clear on sign-out — signOut() hard-navigates, which resets this state.
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    let cancelled = false;
+    getMyNotifications()
+      .then((items) => {
+        // Navigating twice quickly can resolve these out of order.
+        if (!cancelled) setNotifications(items);
+      })
+      .catch((error) => {
+        // A bell that fails to load shouldn't break the page it sits on.
+        console.warn("Could not load notifications:", error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedIn, pathname]);
+
+  // Both mutations below apply optimistically and roll back on failure, so the
+  // bell never claims a state the database didn't accept.
+  const markAllAsRead = async () => {
+    const previous = notifications;
     setNotifications(notifications.map(n => ({ ...n, read: true })));
+    const result = await markAllNotificationsReadAction();
+    if (!result.success) setNotifications(previous);
   };
 
-  const deleteNotification = (e: React.MouseEvent, id: number) => {
+  const deleteNotification = async (e: React.MouseEvent, id: string) => {
     e.preventDefault();
     e.stopPropagation();
+    const previous = notifications;
     setNotifications(prev => prev.filter(n => n.id !== id));
+    const result = await dismissNotificationAction(id);
+    if (!result.success) setNotifications(previous);
   };
 
   useEffect(() => {
@@ -111,72 +142,91 @@ export function Navbar() {
 
           {/* CTA */}
           <div className="hidden md:flex items-center gap-3">
-            {pathname !== "/" && (
-              <>
-                <div className="relative" ref={notifRef}>
-                  <button 
-                    onClick={() => setShowNotifications(!showNotifications)}
-                    className={`p-2 rounded-full transition-all duration-300 relative group ${isDarkBg && !scrolled ? "text-white/80 hover:text-white hover:bg-white/10" : "text-black/60 hover:text-black hover:bg-black/5"} ${showNotifications ? "bg-black/5" : ""}`}
-                  >
-                    <Bell className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                    {unreadCount > 0 && (
-                      <span className="absolute top-1.5 right-2 w-2 h-2 bg-red-500 rounded-full border border-white animate-pulse" />
-                    )}
-                  </button>
+            {/* Notifications are per-account, so the bell is meaningless when
+                signed out — hide it rather than show a permanently empty one. */}
+            {isLoggedIn && pathname !== "/" && (
+              <div className="relative" ref={notifRef}>
+                <button 
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className={`p-2 rounded-full transition-all duration-300 relative group ${isDarkBg && !scrolled ? "text-white/80 hover:text-white hover:bg-white/10" : "text-black/60 hover:text-black hover:bg-black/5"} ${showNotifications ? "bg-black/5" : ""}`}
+                >
+                  <Bell className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1.5 right-2 w-2 h-2 bg-red-500 rounded-full border border-white animate-pulse" />
+                  )}
+                </button>
 
-                  {/* Dropdown Panel */}
-                  {showNotifications && (
-                    <div className="absolute top-full right-0 mt-3 w-80 bg-white rounded-2xl shadow-xl border border-black/10 overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200 z-50">
-                      <div className="flex items-center justify-between p-4 border-b border-black/5 bg-gray-50/50">
-                        <h4 className="font-bold text-black text-sm">Notifications</h4>
-                        {unreadCount > 0 && (
-                          <button 
-                            onClick={markAllAsRead}
-                            className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors"
-                          >
-                            <CheckCheck className="w-3.5 h-3.5" />
-                            Mark all as read
-                          </button>
-                        )}
-                      </div>
-                      <div className="max-h-[300px] overflow-y-auto">
-                        {notifications.length > 0 ? (
-                          notifications.map((notif) => (
-                            <div 
-                              key={notif.id} 
-                              className={`p-4 border-b border-black/5 last:border-0 hover:bg-gray-50 transition-colors cursor-pointer relative ${notif.read ? "opacity-60" : "bg-blue-50/30"}`}
+                {/* Dropdown Panel */}
+                {showNotifications && (
+                  <div className="absolute top-full right-0 mt-3 w-80 bg-white rounded-2xl shadow-xl border border-black/10 overflow-hidden animate-in slide-in-from-top-2 fade-in duration-200 z-50">
+                    <div className="flex items-center justify-between p-4 border-b border-black/5 bg-gray-50/50">
+                      <h4 className="font-bold text-black text-sm">Notifications</h4>
+                      {unreadCount > 0 && (
+                        <button 
+                          onClick={markAllAsRead}
+                          className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                        >
+                          <CheckCheck className="w-3.5 h-3.5" />
+                          Mark all as read
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-[300px] overflow-y-auto">
+                      {notifications.length > 0 ? (
+                        notifications.map((notif) => {
+                          const body = (
+                            <div className="pr-8">
+                              <p className={`text-sm ${notif.read ? "text-gray-600" : "text-black font-medium"}`}>
+                                {notif.body}
+                              </p>
+                              <span className="text-xs text-gray-400 mt-1.5 block">
+                                {formatRelativeTime(notif.createdAt)}
+                              </span>
+                            </div>
+                          );
+                          return (
+                            <div
+                              key={notif.id}
+                              className={`border-b border-black/5 last:border-0 hover:bg-gray-50 transition-colors relative ${notif.read ? "opacity-60" : "bg-blue-50/30"}`}
                             >
-                              <div className="pr-8">
-                                <p className={`text-sm ${notif.read ? "text-gray-600" : "text-black font-medium"}`}>
-                                  {notif.text}
-                                </p>
-                                <span className="text-xs text-gray-400 mt-1.5 block">{notif.time}</span>
-                              </div>
-                              <button 
+                              {notif.href ? (
+                                <Link
+                                  href={notif.href}
+                                  onClick={() => setShowNotifications(false)}
+                                  className="block p-4"
+                                >
+                                  {body}
+                                </Link>
+                              ) : (
+                                <div className="p-4">{body}</div>
+                              )}
+                              <button
                                 type="button"
                                 onClick={(e) => deleteNotification(e, notif.id)}
+                                aria-label="Dismiss notification"
                                 className="absolute top-4 right-4 p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-md transition-all bg-white shadow-sm border border-black/5 z-10"
                               >
                                 <X className="w-3.5 h-3.5 pointer-events-none" />
                               </button>
                             </div>
-                          ))
-                        ) : (
-                          <div className="p-8 text-center text-gray-500 text-sm">
-                            You&apos;re all caught up!
-                          </div>
-                        )}
-                      </div>
+                          );
+                        })
+                      ) : (
+                        <div className="p-8 text-center text-gray-500 text-sm">
+                          You&apos;re all caught up!
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-
-                <Link href="/apply">
-                  <button className={`px-5 py-2 text-sm font-semibold border rounded-xl transition-all duration-300 ${isDarkBg && !scrolled ? "text-white border-white/30 hover:border-white hover:bg-white/10" : "text-black border-black/20 hover:border-black hover:bg-black/5"}`}>
-                    Apply as Talent
-                  </button>
-                </Link>
-              </>
+                  </div>
+                )}
+              </div>
+            )}
+            {pathname !== "/" && (
+              <Link href="/apply">
+                <button className={`px-5 py-2 text-sm font-semibold border rounded-xl transition-all duration-300 ${isDarkBg && !scrolled ? "text-white border-white/30 hover:border-white hover:bg-white/10" : "text-black border-black/20 hover:border-black hover:bg-black/5"}`}>
+                  Apply as Talent
+                </button>
+              </Link>
             )}
             {isLoggedIn && pathname !== "/" && (
               <>

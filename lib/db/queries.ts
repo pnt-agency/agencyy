@@ -1,4 +1,4 @@
-import { eq, desc, and, gte, count, sql, ilike } from "drizzle-orm";
+import { eq, desc, and, or, gte, count, sql, ilike, isNull } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from ".";
 import {
@@ -9,6 +9,7 @@ import {
   employerProfiles,
   authTokens,
   talentInterests,
+  notifications,
   type TalentRow,
   type EmployerRow,
   type UserRow,
@@ -16,6 +17,7 @@ import {
   type EmployerProfileRow,
   type AuthTokenRow,
   type TalentInterestRow,
+  type NotificationRow,
 } from "./schema";
 import type { Talent, Employer } from "@/types";
 
@@ -26,11 +28,13 @@ const DEDUP_WINDOW_MS = 5 * 60 * 1000;
 // ---------- Talent ----------
 
 export async function createTalentRecord(
-  data: Omit<Talent, "id" | "status" | "createdAt">
+  data: Omit<Talent, "id" | "status" | "createdAt">,
+  userId: string | null = null
 ): Promise<TalentRow> {
   const [record] = await db
     .insert(talents)
     .values({
+      userId,
       name: data.name,
       email: data.email,
       phone: data.phone,
@@ -86,11 +90,13 @@ export async function updateTalentRecord(
 // ---------- Employer ----------
 
 export async function createEmployerRecord(
-  data: Omit<Employer, "id" | "status" | "createdAt">
+  data: Omit<Employer, "id" | "status" | "createdAt">,
+  userId: string | null = null
 ): Promise<EmployerRow> {
   const [record] = await db
     .insert(employers)
     .values({
+      userId,
       companyName: data.companyName,
       contactName: data.contactName,
       email: data.email,
@@ -179,25 +185,78 @@ export async function getUserByEmail(email: string): Promise<UserRow | null> {
   return user ?? null;
 }
 
-// A member's own lead records are matched by email against the public
-// application/hire tables (there's no FK link yet — see follow-ups). Matched
-// case-insensitively because those public forms don't normalize email casing.
-export async function countTalentApplicationsByEmail(email: string): Promise<number> {
+// A member's own leads are found by FK first, falling back to a case-insensitive
+// email match. The fallback still matters: someone can apply at /apply while
+// logged out and only make an account afterwards. claimLeadsForUser() converts
+// those matches into real FKs, but this OR keeps the count right in the window
+// before it runs — and for leads submitted under an unverified alias email.
+export async function countTalentApplicationsForUser(
+  userId: string,
+  email: string
+): Promise<number> {
   const normalized = email.trim().toLowerCase();
   const [row] = await db
     .select({ value: count() })
     .from(talents)
-    .where(sql`lower(${talents.email}) = ${normalized}`);
+    .where(
+      or(eq(talents.userId, userId), sql`lower(${talents.email}) = ${normalized}`)
+    );
   return row?.value ?? 0;
 }
 
-export async function countEmployerInquiriesByEmail(email: string): Promise<number> {
+export async function countEmployerInquiriesForUser(
+  userId: string,
+  email: string
+): Promise<number> {
   const normalized = email.trim().toLowerCase();
   const [row] = await db
     .select({ value: count() })
     .from(employers)
-    .where(sql`lower(${employers.email}) = ${normalized}`);
+    .where(
+      or(eq(employers.userId, userId), sql`lower(${employers.email}) = ${normalized}`)
+    );
   return row?.value ?? 0;
+}
+
+// Attach any unclaimed leads sharing this email to the account. Called when an
+// account is created and again when its email is verified, so a lead submitted
+// before signup still shows on the dashboard. Only touches rows where user_id
+// is null — never steals a lead already attributed to someone else.
+export async function claimLeadsForUser(userId: string, email: string): Promise<void> {
+  const normalized = email.trim().toLowerCase();
+  await Promise.all([
+    db
+      .update(talents)
+      .set({ userId })
+      .where(
+        and(isNull(talents.userId), sql`lower(${talents.email}) = ${normalized}`)
+      ),
+    db
+      .update(employers)
+      .set({ userId })
+      .where(
+        and(isNull(employers.userId), sql`lower(${employers.email}) = ${normalized}`)
+      ),
+  ]);
+}
+
+// The account a lead belongs to, for notifying them of CRM status changes.
+export async function getTalentRecordUserId(id: string): Promise<string | null> {
+  const [row] = await db.select({ userId: talents.userId }).from(talents).where(eq(talents.id, id));
+  return row?.userId ?? null;
+}
+
+export async function getEmployerRecordUserId(id: string): Promise<string | null> {
+  const [row] = await db
+    .select({ userId: employers.userId })
+    .from(employers)
+    .where(eq(employers.id, id));
+  return row?.userId ?? null;
+}
+
+export async function getUserById(id: string): Promise<UserRow | null> {
+  const [user] = await db.select().from(users).where(eq(users.id, id));
+  return user ?? null;
 }
 
 export async function setUserRole(userId: string, role: string): Promise<void> {
@@ -423,6 +482,29 @@ export async function listInterests(): Promise<InterestListItem[]> {
     .orderBy(desc(talentInterests.createdAt));
 }
 
+// Both sides of an interest, for addressing notifications about it by name.
+export async function getInterestParties(id: string): Promise<{
+  employerId: string;
+  talentId: string;
+  employerName: string;
+  talentName: string;
+} | null> {
+  const employerUser = alias(users, "employer_user");
+  const talentUser = alias(users, "talent_user");
+  const [row] = await db
+    .select({
+      employerId: talentInterests.employerId,
+      talentId: talentInterests.talentId,
+      employerName: employerUser.name,
+      talentName: talentUser.name,
+    })
+    .from(talentInterests)
+    .innerJoin(employerUser, eq(employerUser.id, talentInterests.employerId))
+    .innerJoin(talentUser, eq(talentUser.id, talentInterests.talentId))
+    .where(eq(talentInterests.id, id));
+  return row ?? null;
+}
+
 export async function updateInterestStatus(
   id: string,
   status: TalentInterestRow["status"]
@@ -433,6 +515,47 @@ export async function updateInterestStatus(
     .where(eq(talentInterests.id, id))
     .returning();
   return row ?? null;
+}
+
+// ---------- Notifications ----------
+
+// Cap on what the bell fetches. The dropdown scrolls; nobody reads past this.
+const NOTIFICATION_PAGE_SIZE = 20;
+
+export async function createNotification(data: {
+  userId: string;
+  body: string;
+  href?: string | null;
+}): Promise<void> {
+  await db.insert(notifications).values({
+    userId: data.userId,
+    body: data.body,
+    href: data.href ?? null,
+  });
+}
+
+export async function listNotificationsForUser(userId: string): Promise<NotificationRow[]> {
+  return db
+    .select()
+    .from(notifications)
+    .where(eq(notifications.userId, userId))
+    .orderBy(desc(notifications.createdAt))
+    .limit(NOTIFICATION_PAGE_SIZE);
+}
+
+export async function markAllNotificationsRead(userId: string): Promise<void> {
+  await db
+    .update(notifications)
+    .set({ readAt: new Date() })
+    .where(and(eq(notifications.userId, userId), isNull(notifications.readAt)));
+}
+
+// userId is part of the predicate, not just the lookup — a caller can only ever
+// delete their own notification, even if they guess someone else's id.
+export async function deleteNotification(id: string, userId: string): Promise<void> {
+  await db
+    .delete(notifications)
+    .where(and(eq(notifications.id, id), eq(notifications.userId, userId)));
 }
 
 // ---------- Admin: talent account verification ----------

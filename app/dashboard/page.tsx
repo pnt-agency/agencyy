@@ -4,8 +4,8 @@ import {
   getUserByEmail,
   getTalentProfile,
   getEmployerProfile,
-  countTalentApplicationsByEmail,
-  countEmployerInquiriesByEmail,
+  countTalentApplicationsForUser,
+  countEmployerInquiriesForUser,
   countInterestsForTalent,
 } from "@/lib/db/queries";
 import { DashboardView } from "@/components/member/dashboard-view";
@@ -29,8 +29,8 @@ export default async function DashboardPage() {
     isEmployer ? Promise.resolve(null) : getTalentProfile(user.id),
     isEmployer ? getEmployerProfile(user.id) : Promise.resolve(null),
     isEmployer
-      ? countEmployerInquiriesByEmail(user.email)
-      : countTalentApplicationsByEmail(user.email),
+      ? countEmployerInquiriesForUser(user.id, user.email)
+      : countTalentApplicationsForUser(user.id, user.email),
     isEmployer ? Promise.resolve(0) : countInterestsForTalent(user.id),
   ]);
 
