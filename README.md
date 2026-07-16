@@ -161,8 +161,81 @@ Postgres with Drizzle ORM:
 
 ## Production deployment
 
-This setup (Docker Compose for Postgres only, app run with `npm run dev` /
-`npm run start` directly) is intended for local development. For production,
-point `DATABASE_URL` at a managed Postgres instance (e.g. RDS, Neon, Supabase,
-or a Postgres container on your production host) and run migrations with
-`npm run db:migrate` against it before starting the app with `npm run build && npm run start`.
+The Docker Compose setup above is for local development only. In production the
+app runs on **Vercel** and the database on **Neon**.
+
+Both `drizzle-kit` and the seed script read `.env.local`, but a shell variable
+takes precedence — so you can run either against Neon without editing that file.
+Every command below assumes `$NEON_URL` is set to your Neon connection string:
+
+```bash
+export NEON_URL="postgresql://user:pass@ep-xxx-pooler.region.aws.neon.tech/dbname?sslmode=require"
+```
+
+### 1. Create the Neon database
+
+Create a project at [neon.tech](https://neon.tech) and copy the **pooled**
+connection string (the host contains `-pooler`). Serverless functions open a
+connection per cold start, so the pooler — not the direct endpoint — is what
+keeps Neon's connection limit from being exhausted. Keep `?sslmode=require`.
+
+### 2. Migrate and seed Neon
+
+Run these from your machine before the first deploy — Vercel does not run
+migrations for you:
+
+```bash
+DATABASE_URL="$NEON_URL" npx drizzle-kit migrate
+DATABASE_URL="$NEON_URL" npm run seed:admin -- someone@example.com "Their Name" "a-strong-password"
+```
+
+### 3. Configure Vercel environment variables
+
+Set these **before** the first deploy. `lib/db/index.ts` throws at import when
+`DATABASE_URL` is missing, and the build imports it while prerendering — so a
+deploy without these fails at build time, not at runtime.
+
+| Variable | Value |
+| --- | --- |
+| `DATABASE_URL` | The pooled Neon string |
+| `NEXTAUTH_SECRET` | `openssl rand -base64 32` — a fresh one, not your local value |
+| `NEXTAUTH_URL` | The full production URL, e.g. `https://your-app.vercel.app` |
+| `RESEND_API_KEY` | From the Resend dashboard |
+| `ADMIN_NOTIFICATION_EMAIL` | Where new application/inquiry alerts go |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Optional — omit both to hide the Google button |
+
+`NEXTAUTH_URL` matters more than it looks: `appBaseUrl()` in `lib/tokens.ts`
+falls back to `http://localhost:3000`, so if it's unset every verification and
+password-reset email ships a link to localhost. Vercel assigns the domain on
+first deploy, so either set it to the expected `<project>.vercel.app` up front,
+or set it afterwards and redeploy.
+
+The `POSTGRES_*` variables are only read by `docker-compose.yml`. Vercel doesn't
+need them.
+
+### 4. Deploy
+
+Push to GitHub and import the repo at [vercel.com/new](https://vercel.com/new).
+The defaults (Next.js preset, `npm run build`) are correct — no overrides.
+
+### 5. If using Google sign-in
+
+Add the production callback URL to the Google Cloud Console OAuth client's
+**Authorized redirect URIs**:
+
+```
+https://your-app.vercel.app/api/auth/callback/google
+```
+
+Sign-in fails with `redirect_uri_mismatch` until this exactly matches the
+deployed domain.
+
+### Subsequent schema changes
+
+Migrations are not automatic. After merging a change that adds a migration:
+
+```bash
+DATABASE_URL="$NEON_URL" npx drizzle-kit migrate
+```
+
+Run it before (or immediately after) the deploy that depends on it.
