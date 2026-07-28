@@ -1,5 +1,12 @@
 import { Resend } from "resend";
 import type { Talent, Employer } from "@/types";
+import {
+  emailLayout,
+  emailButton,
+  emailPanel,
+  emailParagraph as p,
+  emailFacts,
+} from "./email-layout";
 
 // Construct lazily and only when configured — `new Resend(undefined)` throws,
 // which would break importing this module in any env without the key. Callers
@@ -17,7 +24,8 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 const EMAIL_FROM = process.env.EMAIL_FROM ?? "Amaris Partners <onboarding@resend.dev>";
 
 // Basic HTML escaping so user-supplied fields can't inject markup into the
-// notification emails we send to ourselves.
+// emails we send. Applies to member-facing mail as much as internal mail: a
+// name is user input wherever it ends up.
 function esc(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -25,32 +33,55 @@ function esc(value: string): string {
     .replace(/>/g, "&gt;");
 }
 
-export async function sendVerificationEmail(email: string, name: string, url: string) {
+/**
+ * Single send path for member-facing mail. Every caller had the same
+ * null-check / error-check boilerplate; this is that, once.
+ */
+async function send(to: string, subject: string, html: string) {
   if (!resend) {
     console.warn("Resend API key not configured.");
     return null;
   }
-
-  const { data, error } = await resend.emails.send({
-    from: EMAIL_FROM,
-    to: email,
-    subject: "Verify your email - Amaris Partners",
-    html: `
-      <div>
-        <h2>Hi ${esc(name)},</h2>
-        <p>Welcome to Amaris Partners! Please confirm your email address to finish setting up your account.</p>
-        <p><a href="${url}">Verify my email</a></p>
-        <p>Or paste this link into your browser:<br />${esc(url)}</p>
-        <p>This link expires in 24 hours.</p>
-      </div>
-    `,
-  });
-
+  const { data, error } = await resend.emails.send({ from: EMAIL_FROM, to, subject, html });
   if (error) {
     console.error("Resend Error:", error);
     throw new Error(`Resend failed: ${error.message}`);
   }
   return data;
+}
+
+/**
+ * Same, for internal notifications. Quietly does nothing when unconfigured —
+ * these are for us, and a missing ADMIN_NOTIFICATION_EMAIL shouldn't look like
+ * a failure on a member's submission.
+ */
+async function sendToAdmin(subject: string, html: string) {
+  const to = process.env.ADMIN_NOTIFICATION_EMAIL;
+  if (!resend || !to) return null;
+  const { data, error } = await resend.emails.send({ from: EMAIL_FROM, to, subject, html });
+  if (error) {
+    console.error("Resend Error:", error);
+    throw new Error(`Resend failed: ${error.message}`);
+  }
+  return data;
+}
+
+const SIGN_OFF = p("— The Amaris Partners Team");
+
+export async function sendVerificationEmail(email: string, name: string, url: string) {
+  return send(
+    email,
+    "Verify your email - Amaris Partners",
+    emailLayout({
+      preheader: "Confirm your email address to finish setting up your account.",
+      heading: `Hi ${esc(name)}, confirm your email`,
+      body:
+        p("Welcome to Amaris Partners. Confirm your email address to finish setting up your account and unlock your profile.") +
+        emailButton(url, "Verify my email") +
+        emailPanel(`Button not working? Paste this into your browser:<br />${esc(url)}`) +
+        p("This link expires in 24 hours."),
+    })
+  );
 }
 
 /**
@@ -60,201 +91,137 @@ export async function sendVerificationEmail(email: string, name: string, url: st
  * an unverified address may not belong to the person who typed it.
  */
 export async function sendWelcomeEmail(email: string, name: string, dashboardUrl: string) {
-  if (!resend) {
-    console.warn("Resend API key not configured.");
-    return null;
-  }
+  return send(
+    email,
+    "Welcome to Amaris Partners",
+    emailLayout({
+      preheader: "Your account is ready — next, complete your profile.",
+      heading: `Welcome, ${esc(name)}`,
+      body:
+        p("Your Amaris Partners account is ready and your email address is confirmed.") +
+        p("The next step is to complete your profile — it's what our team reviews, and for talent it's what employers see in the directory.") +
+        emailButton(dashboardUrl, "Go to my dashboard") +
+        p("Any questions? Just reply to this email.") +
+        SIGN_OFF,
+    })
+  );
+}
 
-  const { data, error } = await resend.emails.send({
-    from: EMAIL_FROM,
-    to: email,
-    subject: "Welcome to Amaris Partners",
-    html: `
-      <div>
-        <h2>Welcome, ${esc(name)}!</h2>
-        <p>Your Amaris Partners account is ready and your email address is confirmed.</p>
-        <p>The next step is to complete your profile — it's what our team reviews, and for talent it's what employers see in the directory.</p>
-        <p><a href="${dashboardUrl}">Go to my dashboard</a></p>
-        <p>If you have any questions, just reply to this email.</p>
-        <br />
-        <p>Best regards,</p>
-        <p>The Amaris Partners Team</p>
-      </div>
-    `,
-  });
-
-  if (error) {
-    console.error("Resend Error:", error);
-    throw new Error(`Resend failed: ${error.message}`);
-  }
-  return data;
+/**
+ * Sent when an admin verifies a talent profile — the moment it becomes visible
+ * to employers. Pairs with the in-app bell notification raised by the same
+ * action, so the news reaches them whether or not they're signed in.
+ */
+export async function sendTalentVerifiedEmail(email: string, name: string, dashboardUrl: string) {
+  return send(
+    email,
+    "You're verified — your profile is now live",
+    emailLayout({
+      preheader: "Employers can now discover you in the Amaris Partners directory.",
+      heading: `You're verified, ${esc(name)}`,
+      body:
+        p("Our team has reviewed and <strong>verified your profile</strong>. It's now live in the talent directory, where employers can discover you.") +
+        p("You don't need to do anything else. When an employer expresses interest, our team reviews it and makes the introduction personally — so keep an eye on your inbox and your dashboard.") +
+        emailButton(dashboardUrl, "View my dashboard") +
+        p("Keeping your skills and portfolio up to date is the best way to get matched.") +
+        SIGN_OFF,
+    })
+  );
 }
 
 export async function sendPasswordResetEmail(email: string, url: string) {
-  if (!resend) {
-    console.warn("Resend API key not configured.");
-    return null;
-  }
-
-  const { data, error } = await resend.emails.send({
-    from: EMAIL_FROM,
-    to: email,
-    subject: "Reset your password - Amaris Partners",
-    html: `
-      <div>
-        <h2>Reset your password</h2>
-        <p>We received a request to reset your Amaris Partners password. If this was you, click below to choose a new one.</p>
-        <p><a href="${url}">Reset my password</a></p>
-        <p>Or paste this link into your browser:<br />${esc(url)}</p>
-        <p>This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
-      </div>
-    `,
-  });
-
-  if (error) {
-    console.error("Resend Error:", error);
-    throw new Error(`Resend failed: ${error.message}`);
-  }
-  return data;
+  return send(
+    email,
+    "Reset your password - Amaris Partners",
+    emailLayout({
+      preheader: "Choose a new password for your Amaris Partners account.",
+      heading: "Reset your password",
+      body:
+        p("We received a request to reset your Amaris Partners password. If this was you, choose a new one below.") +
+        emailButton(url, "Reset my password") +
+        emailPanel(`Button not working? Paste this into your browser:<br />${esc(url)}`) +
+        p("This link expires in 1 hour. If you didn't request this, you can safely ignore this email — your password won't change."),
+    })
+  );
 }
 
 export async function sendTalentConfirmationEmail(email: string, name: string) {
-  if (!resend) {
-    console.warn("Resend API key not configured.");
-    return null;
-  }
+  return send(
+    email,
+    "Application Received - Amaris Partners",
+    emailLayout({
+      preheader: "We've received your application and our team is reviewing it.",
+      heading: `Thanks, ${esc(name)}`,
+      body:
+        p("We've received your application to join the Amaris Partners talent network, and our team is reviewing your profile.") +
+        p("If your experience aligns with what our clients need, we'll be in touch within 48 hours with next steps on screening and training.") +
+        SIGN_OFF,
+    })
+  );
+}
 
-  const { data: resendData, error } = await resend.emails.send({
-    from: EMAIL_FROM,
-    to: email,
-    subject: "Application Received - Amaris Partners",
-    html: `
-      <div>
-        <h2>Hi ${name},</h2>
-        <p>Thank you for applying to Amaris Partners!</p>
-        <p>We have received your application and our team is currently reviewing your profile.</p>
-        <p>If your experience aligns with our needs, we will reach out within 48 hours with next steps regarding the screening and training process.</p>
-        <br />
-        <p>Best regards,</p>
-        <p>The Amaris Partners Team</p>
-      </div>
-    `,
-  });
-
-  if (error) {
-    console.error("Resend Error:", error);
-    throw new Error(`Resend failed: ${error.message}`);
-  }
-
-  return resendData;
+export async function sendEmployerConfirmationEmail(email: string, contactName: string) {
+  return send(
+    email,
+    "Inquiry Received - Amaris Partners",
+    emailLayout({
+      preheader: "An account manager will review your requirements shortly.",
+      heading: `Thanks, ${esc(contactName)}`,
+      body:
+        p("Thank you for reaching out to Amaris Partners. We've received your request for verified remote talent.") +
+        p("One of our account managers will review your requirements and get back to you within 24 hours.") +
+        SIGN_OFF,
+    })
+  );
 }
 
 export async function sendAdminTalentNotification(
   data: Pick<Talent, "name" | "email" | "phone" | "country" | "role" | "experience" | "portfolio" | "cvLink" | "bio" | "whyJoin">
 ) {
-  const to = process.env.ADMIN_NOTIFICATION_EMAIL;
-  if (!resend || !to) {
-    return null;
-  }
-
-  const { data: resendData, error } = await resend.emails.send({
-    from: EMAIL_FROM,
-    to,
-    subject: `New talent application: ${data.name} (${data.role})`,
-    html: `
-      <div>
-        <h2>New talent application</h2>
-        <ul>
-          <li><strong>Name:</strong> ${esc(data.name)}</li>
-          <li><strong>Email:</strong> ${esc(data.email)}</li>
-          <li><strong>Phone:</strong> ${esc(data.phone)}</li>
-          <li><strong>Country:</strong> ${esc(data.country)}</li>
-          <li><strong>Role:</strong> ${esc(data.role)}</li>
-          <li><strong>Experience:</strong> ${esc(data.experience)}</li>
-          <li><strong>Portfolio:</strong> ${esc(data.portfolio || "-")}</li>
-          <li><strong>CV:</strong> ${esc(data.cvLink || "-")}</li>
-        </ul>
-        <p><strong>Bio:</strong><br />${esc(data.bio)}</p>
-        <p><strong>Why join:</strong><br />${esc(data.whyJoin)}</p>
-      </div>
-    `,
-  });
-
-  if (error) {
-    console.error("Resend Error:", error);
-    throw new Error(`Resend failed: ${error.message}`);
-  }
-
-  return resendData;
-}
-
-export async function sendEmployerConfirmationEmail(email: string, contactName: string) {
-  if (!resend) {
-    console.warn("Resend API key not configured.");
-    return null;
-  }
-
-  const { data: resendData, error } = await resend.emails.send({
-    from: EMAIL_FROM,
-    to: email,
-    subject: "Inquiry Received - Amaris Partners",
-    html: `
-      <div>
-        <h2>Hi ${contactName},</h2>
-        <p>Thank you for reaching out to Amaris Partners.</p>
-        <p>We've received your request for verified remote talent. One of our account managers will review your requirements and get back to you within 24 hours.</p>
-        <br />
-        <p>Best regards,</p>
-        <p>The Amaris Partners Team</p>
-      </div>
-    `,
-  });
-
-  if (error) {
-    console.error("Resend Error:", error);
-    throw new Error(`Resend failed: ${error.message}`);
-  }
-
-  return resendData;
+  return sendToAdmin(
+    `New talent application: ${data.name} (${data.role})`,
+    emailLayout({
+      preheader: `${data.name} applied for ${data.role}.`,
+      heading: "New talent application",
+      body:
+        emailFacts([
+          ["Name", esc(data.name)],
+          ["Email", esc(data.email)],
+          ["Phone", esc(data.phone)],
+          ["Country", esc(data.country)],
+          ["Role", esc(data.role)],
+          ["Experience", esc(data.experience)],
+          ["Portfolio", esc(data.portfolio || "—")],
+          ["CV", esc(data.cvLink || "—")],
+        ]) +
+        p(`<strong>Bio</strong><br />${esc(data.bio)}`) +
+        p(`<strong>Why join</strong><br />${esc(data.whyJoin)}`),
+    })
+  );
 }
 
 export async function sendAdminEmployerNotification(
   data: Pick<Employer, "companyName" | "contactName" | "email" | "phone" | "country" | "roleNeeded" | "numberNeeded" | "budget" | "startDate" | "requirements">
 ) {
-  const to = process.env.ADMIN_NOTIFICATION_EMAIL;
-  if (!resend || !to) {
-    return null;
-  }
-
-  const { data: resendData, error } = await resend.emails.send({
-    from: EMAIL_FROM,
-    to,
-    subject: `New employer inquiry: ${data.companyName} (${data.roleNeeded})`,
-    html: `
-      <div>
-        <h2>New employer inquiry</h2>
-        <ul>
-          <li><strong>Company:</strong> ${esc(data.companyName)}</li>
-          <li><strong>Contact:</strong> ${esc(data.contactName)}</li>
-          <li><strong>Email:</strong> ${esc(data.email)}</li>
-          <li><strong>Phone:</strong> ${esc(data.phone)}</li>
-          <li><strong>Country:</strong> ${esc(data.country)}</li>
-          <li><strong>Role needed:</strong> ${esc(data.roleNeeded)}</li>
-          <li><strong>Number needed:</strong> ${data.numberNeeded}</li>
-          <li><strong>Budget:</strong> ${esc(data.budget)}</li>
-          <li><strong>Start date:</strong> ${esc(data.startDate)}</li>
-        </ul>
-        <p><strong>Requirements:</strong><br />${esc(data.requirements || "-")}</p>
-      </div>
-    `,
-  });
-
-  if (error) {
-    console.error("Resend Error:", error);
-    throw new Error(`Resend failed: ${error.message}`);
-  }
-
-  return resendData;
+  return sendToAdmin(
+    `New employer inquiry: ${data.companyName} (${data.roleNeeded})`,
+    emailLayout({
+      preheader: `${data.companyName} needs ${data.numberNeeded} × ${data.roleNeeded}.`,
+      heading: "New employer inquiry",
+      body:
+        emailFacts([
+          ["Company", esc(data.companyName)],
+          ["Contact", esc(data.contactName)],
+          ["Email", esc(data.email)],
+          ["Phone", esc(data.phone)],
+          ["Country", esc(data.country)],
+          ["Role needed", esc(data.roleNeeded)],
+          ["Number needed", String(data.numberNeeded)],
+          ["Budget", esc(data.budget)],
+          ["Start date", esc(data.startDate)],
+        ]) + p(`<strong>Requirements</strong><br />${esc(data.requirements || "—")}`),
+    })
+  );
 }
 
 export async function sendAdminInterestNotification(data: {
@@ -262,30 +229,18 @@ export async function sendAdminInterestNotification(data: {
   talentName: string;
   message: string | null;
 }) {
-  const to = process.env.ADMIN_NOTIFICATION_EMAIL;
-  if (!resend || !to) {
-    return null;
-  }
-
-  const { data: resendData, error } = await resend.emails.send({
-    from: EMAIL_FROM,
-    to,
-    subject: `New interest: ${data.employerName} → ${data.talentName}`,
-    html: `
-      <div>
-        <h2>New talent interest</h2>
-        <p><strong>Employer:</strong> ${esc(data.employerName)}</p>
-        <p><strong>Talent:</strong> ${esc(data.talentName)}</p>
-        <p><strong>Message:</strong><br />${esc(data.message || "-")}</p>
-        <p>Review it and make the intro from the admin dashboard.</p>
-      </div>
-    `,
-  });
-
-  if (error) {
-    console.error("Resend Error:", error);
-    throw new Error(`Resend failed: ${error.message}`);
-  }
-
-  return resendData;
+  return sendToAdmin(
+    `New interest: ${data.employerName} → ${data.talentName}`,
+    emailLayout({
+      preheader: `${data.employerName} is interested in ${data.talentName}.`,
+      heading: "New talent interest",
+      body:
+        emailFacts([
+          ["Employer", esc(data.employerName)],
+          ["Talent", esc(data.talentName)],
+        ]) +
+        p(`<strong>Message</strong><br />${esc(data.message || "—")}`) +
+        p("Review it and make the intro from the admin dashboard."),
+    })
+  );
 }

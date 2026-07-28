@@ -1,7 +1,8 @@
 "use server";
 
 import { createTalentRecord, createEmployerRecord, updateTalentRecord, updateEmployerRecord, updateTalentMeta, updateEmployerMeta, hasRecentTalentSubmission, hasRecentEmployerSubmission, getVerifiedTalentById, hasPendingInterest, createInterest, setTalentVerified, updateInterestStatus, createNotification, getInterestParties, getTalentRecordUserId, getEmployerRecordUserId, getUserById, setUserRole, countAdmins, getTalentRecord, getEmployerRecord, getTalentProfile, getInterestById, listTalentRecords, listEmployerRecords } from "@/lib/db/queries";
-import { sendTalentConfirmationEmail, sendEmployerConfirmationEmail, sendAdminTalentNotification, sendAdminEmployerNotification, sendAdminInterestNotification } from "@/lib/resend";
+import { sendTalentConfirmationEmail, sendEmployerConfirmationEmail, sendAdminTalentNotification, sendAdminEmployerNotification, sendAdminInterestNotification, sendTalentVerifiedEmail } from "@/lib/resend";
+import { appBaseUrl } from "@/lib/tokens";
 import { Talent, Employer } from "@/types";
 import { getAdminAccount, getCurrentUser } from "@/lib/auth";
 import { recordAudit, AUDIT_ACTIONS, AUDIT_TARGETS } from "@/lib/audit";
@@ -202,6 +203,22 @@ export async function setTalentVerifiedAction(userId: string, verified: boolean)
         "Your profile is verified and now listed in the talent directory.",
         "/dashboard"
       );
+      // And by email, so it reaches them when they aren't signed in. Both the
+      // lookup and the send are best-effort: the profile is already verified,
+      // and failing the admin's action over an undelivered email would be
+      // wrong.
+      try {
+        const member = await getUserById(userId);
+        if (member) {
+          await sendTalentVerifiedEmail(
+            member.email,
+            member.name,
+            `${appBaseUrl()}/dashboard`
+          );
+        }
+      } catch (error) {
+        console.warn("Verification email could not be sent:", error);
+      }
     }
     revalidatePath("/admin/directory");
     revalidatePath("/talent");
