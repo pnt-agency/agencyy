@@ -134,8 +134,9 @@ export default async function AdminDashboard({
             <Link href="/admin/directory" className="text-sm font-semibold text-gray-600 hover:text-black">Talent Directory</Link>
             <Link href="/admin/interests" className="text-sm font-semibold text-gray-600 hover:text-black">Interests</Link>
             <Link href="/admin/users" className="text-sm font-semibold text-gray-600 hover:text-black">Users</Link>
+            <Link href="/admin/audit" className="text-sm font-semibold text-gray-600 hover:text-black">Audit Log</Link>
             {/* Export always covers ALL records, not the filtered/paged view. */}
-            <ExportDataButton talents={allTalents} employers={allEmployers} />
+            <ExportDataButton />
           </div>
         </div>
 

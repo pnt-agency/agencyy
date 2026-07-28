@@ -35,7 +35,8 @@ export default async function AdminInterestsPage() {
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <Link href="/admin" className={navLink}>← Pipeline</Link>
             <Link href="/admin/directory" className={navLink}>Directory</Link>
-            <Link href="/admin/users" className={navLink}>Users →</Link>
+            <Link href="/admin/users" className={navLink}>Users</Link>
+            <Link href="/admin/audit" className={navLink}>Audit Log →</Link>
           </div>
         </div>
 

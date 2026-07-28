@@ -6,6 +6,7 @@ import {
   timestamp,
   boolean,
   pgEnum,
+  jsonb,
   index,
 } from "drizzle-orm/pg-core";
 
@@ -205,6 +206,47 @@ export const notifications = pgTable(
   (table) => [index("notifications_user_created_idx").on(table.userId, table.createdAt)]
 );
 
+// Append-only record of what admins did. Written by every admin mutation (see
+// lib/audit.ts) so "who changed this account, and when" has an answer.
+//
+// Append-only is currently a convention, not a grant: the app connects as the
+// database owner, which can rewrite anything. Enforcing it means a second role
+// without UPDATE/DELETE on this table.
+export const auditLogs = pgTable(
+  "audit_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // The acting admin. Soft delete keeps their row, so this survives — but
+    // it's nullable so a hard delete can't take the log entry with it.
+    actorId: uuid("actor_id").references(() => users.id, { onDelete: "set null" }),
+    // The actor's address *at the time of the action*, not a live join.
+    // softDeleteUser() rewrites users.email to a tombstone, so without this
+    // snapshot every entry by a departed admin would stop naming anyone.
+    actorEmail: text("actor_email").notNull(),
+    // Dotted verb from AUDIT_ACTIONS, e.g. "user.role.set".
+    action: text("action").notNull(),
+    // Polymorphic target, deliberately with no foreign key: a log entry has to
+    // outlive the row it describes.
+    targetType: text("target_type").notNull(),
+    targetId: uuid("target_id"),
+    // Only the fields that changed — never whole rows. Copying a talent record
+    // in here would duplicate their PII into a table we never scrub.
+    before: jsonb("before"),
+    after: jsonb("after"),
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    // The viewer reads newest-first; the second index answers "everything that
+    // ever happened to this record".
+    index("audit_logs_created_idx").on(table.createdAt),
+    index("audit_logs_target_idx").on(table.targetType, table.targetId),
+  ]
+);
+
 export type TalentRow = typeof talents.$inferSelect;
 export type NewTalentRow = typeof talents.$inferInsert;
 export type EmployerRow = typeof employers.$inferSelect;
@@ -221,3 +263,5 @@ export type TalentInterestRow = typeof talentInterests.$inferSelect;
 export type NewTalentInterestRow = typeof talentInterests.$inferInsert;
 export type NotificationRow = typeof notifications.$inferSelect;
 export type NewNotificationRow = typeof notifications.$inferInsert;
+export type AuditLogRow = typeof auditLogs.$inferSelect;
+export type NewAuditLogRow = typeof auditLogs.$inferInsert;

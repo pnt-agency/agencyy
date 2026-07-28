@@ -187,6 +187,18 @@ export async function getAdminSession(): Promise<Session | null> {
 }
 
 /**
+ * The acting admin's database row, or null if the caller isn't an admin.
+ *
+ * Same authorization as getAdminSession(), but it hands back *who* rather than
+ * just *whether* — which is what the audit log needs. Admin mutations should
+ * prefer this: an action that can't name its actor can't be audited.
+ */
+export async function getAdminAccount(): Promise<UserRow | null> {
+  const current = await activeSession();
+  return current?.account.role === "admin" ? current.account : null;
+}
+
+/**
  * Returns the current authenticated session user (any role), or null. Used to
  * gate member pages/actions. Callers that need role-specific behavior read
  * session.user.role.

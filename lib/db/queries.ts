@@ -10,6 +10,7 @@ import {
   authTokens,
   talentInterests,
   notifications,
+  auditLogs,
   type TalentRow,
   type EmployerRow,
   type UserRow,
@@ -18,6 +19,8 @@ import {
   type AuthTokenRow,
   type TalentInterestRow,
   type NotificationRow,
+  type AuditLogRow,
+  type NewAuditLogRow,
 } from "./schema";
 import type { Talent, Employer } from "@/types";
 
@@ -536,6 +539,13 @@ export async function getInterestParties(id: string): Promise<{
   return row ?? null;
 }
 
+// Reads an interest's current state so an auditable mutation can capture what
+// it looked like before the change.
+export async function getInterestById(id: string): Promise<TalentInterestRow | null> {
+  const [row] = await db.select().from(talentInterests).where(eq(talentInterests.id, id));
+  return row ?? null;
+}
+
 export async function updateInterestStatus(
   id: string,
   status: TalentInterestRow["status"]
@@ -663,4 +673,30 @@ export async function setTalentVerified(userId: string, verified: boolean): Prom
       target: talentProfiles.userId,
       set: { verified, updatedAt: new Date() },
     });
+}
+
+// ---------- Audit log ----------
+
+export async function insertAuditLog(entry: NewAuditLogRow): Promise<void> {
+  await db.insert(auditLogs).values(entry);
+}
+
+export type AuditLogFilters = {
+  actor?: string;
+  action?: string;
+};
+
+// Newest first — the viewer reads this as a timeline. The actor's email is
+// snapshotted on the row, so this needs no join and stays correct even after
+// the acting admin's account is deleted and scrubbed.
+export async function listAuditLogs(filters: AuditLogFilters = {}): Promise<AuditLogRow[]> {
+  const conds = [];
+  if (filters.actor) conds.push(ilike(auditLogs.actorEmail, `%${filters.actor}%`));
+  if (filters.action) conds.push(eq(auditLogs.action, filters.action));
+
+  return db
+    .select()
+    .from(auditLogs)
+    .where(conds.length ? and(...conds) : undefined)
+    .orderBy(desc(auditLogs.createdAt));
 }

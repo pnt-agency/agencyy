@@ -1,9 +1,10 @@
 "use server";
 
-import { createTalentRecord, createEmployerRecord, updateTalentRecord, updateEmployerRecord, updateTalentMeta, updateEmployerMeta, hasRecentTalentSubmission, hasRecentEmployerSubmission, getVerifiedTalentById, hasPendingInterest, createInterest, setTalentVerified, updateInterestStatus, createNotification, getInterestParties, getTalentRecordUserId, getEmployerRecordUserId, getUserById, setUserRole, countAdmins } from "@/lib/db/queries";
+import { createTalentRecord, createEmployerRecord, updateTalentRecord, updateEmployerRecord, updateTalentMeta, updateEmployerMeta, hasRecentTalentSubmission, hasRecentEmployerSubmission, getVerifiedTalentById, hasPendingInterest, createInterest, setTalentVerified, updateInterestStatus, createNotification, getInterestParties, getTalentRecordUserId, getEmployerRecordUserId, getUserById, setUserRole, countAdmins, getTalentRecord, getEmployerRecord, getTalentProfile, getInterestById, listTalentRecords, listEmployerRecords } from "@/lib/db/queries";
 import { sendTalentConfirmationEmail, sendEmployerConfirmationEmail, sendAdminTalentNotification, sendAdminEmployerNotification, sendAdminInterestNotification } from "@/lib/resend";
 import { Talent, Employer } from "@/types";
-import { getAdminSession, getCurrentUser } from "@/lib/auth";
+import { getAdminAccount, getCurrentUser } from "@/lib/auth";
+import { recordAudit, AUDIT_ACTIONS, AUDIT_TARGETS } from "@/lib/audit";
 import { talentInputSchema, employerInputSchema, expressInterestSchema } from "@/lib/validation";
 import { isAssignableAccountRole } from "@/lib/roles";
 import { revalidatePath } from "next/cache";
@@ -51,9 +52,13 @@ export async function submitTalentApplication(data: Omit<Talent, "id" | "status"
 
 // ---------- Admin actions (require an admin session) ----------
 
+// Returns the acting admin rather than a boolean: every mutation below writes
+// an audit entry, and an action that can't name its actor can't be audited.
 async function requireAdminSession() {
-  return Boolean(await getAdminSession());
+  return getAdminAccount();
 }
+
+const NOT_AUTHENTICATED = { success: false as const, error: "Not authenticated." };
 
 // A notification is a side effect of the real work, never the point of it —
 // a failure here must not fail the action that triggered it.
@@ -66,13 +71,23 @@ async function notify(userId: string, body: string, href?: string) {
 }
 
 export async function updateTalentStatus(id: string, status: Talent["status"]) {
-  const isAdmin = await requireAdminSession();
-  if (!isAdmin) {
-    return { success: false, error: "Not authenticated." };
-  }
+  const admin = await requireAdminSession();
+  if (!admin) return NOT_AUTHENTICATED;
+
+  // Read the prior value before mutating so the audit entry can show the
+  // transition, not just the destination.
+  const before = await getTalentRecord(id);
 
   try {
     await updateTalentRecord(id, { status });
+    await recordAudit({
+      actor: admin,
+      action: AUDIT_ACTIONS.TALENT_STATUS_SET,
+      targetType: AUDIT_TARGETS.TALENT,
+      targetId: id,
+      before: { status: before?.status ?? null },
+      after: { status },
+    });
     // Tell the applicant their application moved, if the lead is attributed to
     // an account. Unattributed leads (applied without signing up) get nothing.
     const ownerId = await getTalentRecordUserId(id);
@@ -88,13 +103,21 @@ export async function updateTalentStatus(id: string, status: Talent["status"]) {
 }
 
 export async function updateEmployerStatus(id: string, status: Employer["status"]) {
-  const isAdmin = await requireAdminSession();
-  if (!isAdmin) {
-    return { success: false, error: "Not authenticated." };
-  }
+  const admin = await requireAdminSession();
+  if (!admin) return NOT_AUTHENTICATED;
+
+  const before = await getEmployerRecord(id);
 
   try {
     await updateEmployerRecord(id, { status });
+    await recordAudit({
+      actor: admin,
+      action: AUDIT_ACTIONS.EMPLOYER_STATUS_SET,
+      targetType: AUDIT_TARGETS.EMPLOYER,
+      targetId: id,
+      before: { status: before?.status ?? null },
+      after: { status },
+    });
     const ownerId = await getEmployerRecordUserId(id);
     if (ownerId) {
       await notify(ownerId, `Your hiring inquiry is now "${status}".`, "/dashboard");
@@ -119,14 +142,58 @@ function toMetaData(patch: MetaPatch): { notes?: string | null; followUpDate?: D
   return data;
 }
 
+type MetaData = ReturnType<typeof toMetaData>;
+
+// Dates don't survive a jsonb round-trip as Date objects, so normalise them to
+// ISO strings before they're stored.
+function serializeMeta(value: Date | string | null | undefined): string | null {
+  if (!value) return null;
+  return value instanceof Date ? value.toISOString() : String(value);
+}
+
+/** The submitted values, shaped for storage. */
+function auditableMeta(data: MetaData): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if ("notes" in data) out.notes = data.notes ?? null;
+  if ("followUpDate" in data) out.followUpDate = serializeMeta(data.followUpDate);
+  return out;
+}
+
+/**
+ * The prior values of exactly the fields this patch touches. Recording the
+ * whole row instead would copy the lead's PII into the audit table, which is
+ * one place we never scrub.
+ */
+function changedFields(
+  before: { notes: string | null; followUpDate: Date | null } | null,
+  data: MetaData
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if ("notes" in data) out.notes = before?.notes ?? null;
+  if ("followUpDate" in data) out.followUpDate = serializeMeta(before?.followUpDate);
+  return out;
+}
+
 // ---------- Admin: verify talent + move interest status ----------
 
 export async function setTalentVerifiedAction(userId: string, verified: boolean) {
-  if (!(await requireAdminSession())) {
-    return { success: false, error: "Not authenticated." };
-  }
+  const admin = await requireAdminSession();
+  if (!admin) return NOT_AUTHENTICATED;
+
+  // No profile row yet means the upsert below creates one — record that as a
+  // transition from unverified rather than from nothing.
+  const before = await getTalentProfile(userId);
+
   try {
     await setTalentVerified(userId, verified);
+    await recordAudit({
+      actor: admin,
+      action: AUDIT_ACTIONS.PROFILE_VERIFIED_SET,
+      targetType: AUDIT_TARGETS.USER,
+      targetId: userId,
+      before: { verified: before?.verified ?? false },
+      after: { verified },
+    });
     // Only announce the good news. Being unlisted is a quiet admin action —
     // the member sees it reflected on their dashboard either way.
     if (verified) {
@@ -152,10 +219,8 @@ export async function setTalentVerifiedAction(userId: string, verified: boolean)
  * nobody able to reach /admin, fixable only with direct database access.
  */
 export async function setUserRoleAction(userId: string, role: string) {
-  const session = await getAdminSession();
-  if (!session) {
-    return { success: false, error: "Not authenticated." };
-  }
+  const admin = await requireAdminSession();
+  if (!admin) return NOT_AUTHENTICATED;
 
   // Whitelist rather than trusting the submitted string — this is a privilege
   // boundary, and "user" is transient state the signup flow owns, not a role
@@ -169,9 +234,9 @@ export async function setUserRoleAction(userId: string, role: string) {
     return { success: false, error: "Account not found." };
   }
 
-  // Compare on email: getAdminSession() resolves the caller by email, so this
-  // holds even if the session's id claim is missing.
-  if (target.email === session.user?.email || target.id === session.user?.id) {
+  // Both sides now come from the database, so a plain id comparison is enough —
+  // this no longer depends on the session carrying an id claim.
+  if (target.id === admin.id) {
     return { success: false, error: "You cannot change your own role." };
   }
 
@@ -185,6 +250,15 @@ export async function setUserRoleAction(userId: string, role: string) {
 
   try {
     await setUserRole(userId, role);
+    // The privilege boundary — the single most important entry in this log.
+    await recordAudit({
+      actor: admin,
+      action: AUDIT_ACTIONS.USER_ROLE_SET,
+      targetType: AUDIT_TARGETS.USER,
+      targetId: userId,
+      before: { role: target.role },
+      after: { role },
+    });
     await notify(
       userId,
       role === "admin"
@@ -206,14 +280,24 @@ export async function updateInterestStatusAction(
   id: string,
   status: "Pending" | "Intro Made" | "Closed"
 ) {
-  if (!(await requireAdminSession())) {
-    return { success: false, error: "Not authenticated." };
-  }
+  const admin = await requireAdminSession();
+  if (!admin) return NOT_AUTHENTICATED;
+
+  const before = await getInterestById(id);
+
   try {
     // Read the parties before the update — if the row vanishes we skip the
     // notifications rather than guessing who they were for.
     const parties = await getInterestParties(id);
     await updateInterestStatus(id, status);
+    await recordAudit({
+      actor: admin,
+      action: AUDIT_ACTIONS.INTEREST_STATUS_SET,
+      targetType: AUDIT_TARGETS.INTEREST,
+      targetId: id,
+      before: { status: before?.status ?? null },
+      after: { status },
+    });
 
     // "Intro Made" is the moment the admin has vetted and connected the two —
     // the first point at which each side may know who the other is.
@@ -298,11 +382,24 @@ export async function expressInterest(
 }
 
 export async function updateTalentDetails(id: string, patch: MetaPatch) {
-  if (!(await requireAdminSession())) {
-    return { success: false, error: "Not authenticated." };
-  }
+  const admin = await requireAdminSession();
+  if (!admin) return NOT_AUTHENTICATED;
+
+  const before = await getTalentRecord(id);
+
   try {
-    await updateTalentMeta(id, toMetaData(patch));
+    const data = toMetaData(patch);
+    await updateTalentMeta(id, data);
+    await recordAudit({
+      actor: admin,
+      action: AUDIT_ACTIONS.TALENT_DETAILS_UPDATE,
+      targetType: AUDIT_TARGETS.TALENT,
+      targetId: id,
+      // Scoped to the keys this patch actually carried — an edit to the notes
+      // shouldn't imply anything about the follow-up date.
+      before: changedFields(before, data),
+      after: auditableMeta(data),
+    });
     revalidatePath("/admin");
     return { success: true };
   } catch (error) {
@@ -312,11 +409,22 @@ export async function updateTalentDetails(id: string, patch: MetaPatch) {
 }
 
 export async function updateEmployerDetails(id: string, patch: MetaPatch) {
-  if (!(await requireAdminSession())) {
-    return { success: false, error: "Not authenticated." };
-  }
+  const admin = await requireAdminSession();
+  if (!admin) return NOT_AUTHENTICATED;
+
+  const before = await getEmployerRecord(id);
+
   try {
-    await updateEmployerMeta(id, toMetaData(patch));
+    const data = toMetaData(patch);
+    await updateEmployerMeta(id, data);
+    await recordAudit({
+      actor: admin,
+      action: AUDIT_ACTIONS.EMPLOYER_DETAILS_UPDATE,
+      targetType: AUDIT_TARGETS.EMPLOYER,
+      targetId: id,
+      before: changedFields(before, data),
+      after: auditableMeta(data),
+    });
     revalidatePath("/admin");
     return { success: true };
   } catch (error) {
@@ -362,4 +470,70 @@ export async function submitEmployerInquiry(data: Omit<Employer, "id" | "status"
   }
 
   return { success: true };
+}
+
+// ---------- Admin: data export ----------
+
+// Serialize a single CSV cell: wrap in quotes and double any embedded quotes so
+// commas, newlines, and quotes in free-text fields (bio, notes) can't break the row.
+function cell(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  const str = value instanceof Date ? value.toISOString() : String(value);
+  return `"${str.replace(/"/g, '""')}"`;
+}
+
+function toCsv(headers: string[], rows: unknown[][]): string {
+  return [headers, ...rows].map((row) => row.map(cell).join(",")).join("\r\n");
+}
+
+/**
+ * Builds the CSV export server-side.
+ *
+ * This used to happen entirely in the browser from rows already embedded in the
+ * admin page, which meant the single largest PII disclosure this app performs —
+ * every applicant's name, email, phone and CV link — left no trace anywhere.
+ * Running it through an action gives it an actor, a timestamp and a log entry.
+ */
+export async function exportAdminDataAction() {
+  const admin = await requireAdminSession();
+  if (!admin) return NOT_AUTHENTICATED;
+
+  try {
+    const [talentRows, employerRows] = await Promise.all([
+      listTalentRecords(),
+      listEmployerRecords(),
+    ]);
+
+    const talentCsv = toCsv(
+      ["Name", "Email", "Phone", "Country", "Role", "Experience", "Portfolio", "CV Link", "Status", "Follow-up", "Notes", "Created"],
+      talentRows.map((t) => [
+        t.name, t.email, t.phone, t.country, t.role, t.experience,
+        t.portfolio, t.cvLink, t.status, t.followUpDate, t.notes, t.createdAt,
+      ])
+    );
+
+    const employerCsv = toCsv(
+      ["Company", "Contact", "Email", "Phone", "Country", "Role Needed", "Number Needed", "Budget", "Start Date", "Requirements", "Status", "Follow-up", "Notes", "Created"],
+      employerRows.map((e) => [
+        e.companyName, e.contactName, e.email, e.phone, e.country, e.roleNeeded,
+        e.numberNeeded, e.budget, e.startDate, e.requirements, e.status,
+        e.followUpDate, e.notes, e.createdAt,
+      ])
+    );
+
+    // Row counts, not contents — the log records that a dump happened and how
+    // much of it, without becoming a second copy of the data.
+    await recordAudit({
+      actor: admin,
+      action: AUDIT_ACTIONS.DATA_EXPORT,
+      targetType: AUDIT_TARGETS.DATASET,
+      targetId: null,
+      after: { talents: talentRows.length, employers: employerRows.length },
+    });
+
+    return { success: true as const, talentCsv, employerCsv };
+  } catch (error) {
+    console.error("Error exporting admin data:", error);
+    return { success: false as const, error: "Failed to export data." };
+  }
 }
