@@ -93,6 +93,9 @@ npm run db:generate
 npm run db:migrate
 ```
 
+Commit the generated SQL. Production applies it on the next deploy — see
+[Migrations on deploy](#migrations-on-deploy).
+
 You can also browse the database visually:
 
 ```bash
@@ -179,13 +182,12 @@ connection string (the host contains `-pooler`). Serverless functions open a
 connection per cold start, so the pooler — not the direct endpoint — is what
 keeps Neon's connection limit from being exhausted. Keep `?sslmode=require`.
 
-### 2. Migrate and seed Neon
+### 2. Seed Neon
 
-Run these from your machine before the first deploy — Vercel does not run
-migrations for you:
+Migrations run themselves — see [Migrations on deploy](#migrations-on-deploy)
+below. Seeding the first admin is still a one-off you run from your machine:
 
 ```bash
-DATABASE_URL="$NEON_URL" npx drizzle-kit migrate
 DATABASE_URL="$NEON_URL" npm run seed:admin -- someone@example.com "Their Name" "a-strong-password"
 ```
 
@@ -217,7 +219,38 @@ need them.
 ### 4. Deploy
 
 Push to GitHub and import the repo at [vercel.com/new](https://vercel.com/new).
-The defaults (Next.js preset, `npm run build`) are correct — no overrides.
+`vercel.json` sets the build command; leave the rest of the Next.js preset
+alone. Note that a Build Command set in the Vercel dashboard is **ignored** —
+`vercel.json` overrides it.
+
+### Migrations on deploy
+
+`vercel.json` runs migrations ahead of the build:
+
+```
+npm run db:migrate:deploy && npm run build
+```
+
+Two properties matter:
+
+- **Production only.** `db:migrate:deploy` is a no-op unless `VERCEL_ENV` is
+  `production`, so a preview build of an unmerged branch can't reshape the
+  production schema. If previews ever get their own database, drop the guard.
+- **Fails closed.** If a migration fails, the build never starts and the
+  deploy fails, leaving the previous deployment serving. You get a broken
+  deploy instead of live code querying columns that don't exist.
+
+So the workflow for a schema change is: edit `lib/db/schema.ts`, run
+`npm run db:generate`, commit the generated SQL alongside the code, and push.
+
+Two caveats worth knowing:
+
+- Migrations run against the **pooled** Neon endpoint, since that's what
+  `DATABASE_URL` points at. This works, but Neon recommends the direct
+  (non-pooler) endpoint for DDL. If a migration ever hangs or errors oddly, set
+  a separate unpooled URL for the migration step.
+- Two production deploys building at once would both migrate. Drizzle's
+  migrator takes no lock, so avoid promoting two builds simultaneously.
 
 ### 5. If using Google sign-in
 
