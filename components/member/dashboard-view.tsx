@@ -50,7 +50,11 @@ export function DashboardView({
   // Real, actionable next steps derived from the account's actual state — no
   // fabricated activity feed.
   const nextSteps: { label: string; href: string }[] = [];
-  if (isAdmin) {
+  if (!emailVerified) {
+    // Everything else on this list routes through the profile, which is gated
+    // until the address is confirmed — so verifying is the only real next step.
+    nextSteps.push({ label: "Verify your email address", href: "/verify-email" });
+  } else if (isAdmin) {
     nextSteps.push({ label: "Open the admin dashboard", href: "/admin" });
   } else if (!roleChosen) {
     nextSteps.push({ label: "Choose your account type to finish signing up", href: "/profile-setup" });
@@ -82,13 +86,16 @@ export function DashboardView({
     <div className="min-h-screen bg-gray-50 pt-32 pb-12">
       <div className="max-w-7xl mx-auto px-6">
 
-        {/* Email verification notice — soft (informational, not blocking) */}
+        {/* Email verification notice. The dashboard itself stays readable, but
+            the profile is locked until this is cleared, so the banner says what
+            it costs rather than being purely informational. */}
         {!emailVerified && (
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center gap-3 justify-between rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
             <div className="flex items-center gap-3">
               <MailWarning className="w-5 h-5 text-amber-600 shrink-0" />
               <p className="text-sm text-amber-900">
-                Please verify your email address. We sent a link to <span className="font-semibold">{email}</span>.
+                Verify your email to unlock your profile. We sent a link to{" "}
+                <span className="font-semibold">{email}</span>.
               </p>
             </div>
             {resendState === "sent" ? (
@@ -139,9 +146,9 @@ export function DashboardView({
             </h1>
           </div>
           <div className="flex gap-3 animate-fade-up" style={{ animationDelay: "100ms" }}>
-            <Link href={isAdmin ? "/admin" : isEmployer ? "/hire" : "/profile-setup"}>
+            <Link href={!emailVerified ? "/verify-email" : isAdmin ? "/admin" : isEmployer ? "/hire" : "/profile-setup"}>
               <button className="flex items-center gap-2 px-5 py-2.5 bg-gold text-black font-semibold rounded-xl hover:bg-gold/90 transition-colors shadow-md">
-                {isAdmin ? "Admin Dashboard" : isEmployer ? "Post a Job" : isTalent ? "Update Profile" : "Finish Setup"}
+                {!emailVerified ? "Verify Email" : isAdmin ? "Admin Dashboard" : isEmployer ? "Post a Job" : isTalent ? "Update Profile" : "Finish Setup"}
               </button>
             </Link>
           </div>
@@ -246,7 +253,9 @@ export function DashboardView({
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8 animate-fade-up" style={{ animationDelay: "400ms" }}>
               <h3 className="text-lg font-bold text-black mb-4">Quick Links</h3>
               <div className="space-y-2">
-                {(isAdmin
+                {(!emailVerified
+                  ? [{ label: "Verify your email address", href: "/verify-email" }]
+                  : isAdmin
                   ? [
                       { label: "Admin Dashboard", href: "/admin" },
                       { label: "Browse Talent", href: "/talent" },

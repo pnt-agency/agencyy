@@ -2,7 +2,7 @@
 
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, getCurrentAccount, isEmailVerified } from "@/lib/auth";
 import {
   registerMemberSchema,
   saveProfileSchema,
@@ -63,7 +63,13 @@ function orNull(value: string | undefined): string | null {
 export async function registerMember(data: unknown): Promise<ActionResult> {
   const parsed = registerMemberSchema.safeParse(data);
   if (!parsed.success) {
-    return { success: false, error: "Please check your details and try again." };
+    // A rejected password is worth naming ("at least 8 characters") — the form
+    // has no other way to say what went wrong. Everything else stays generic.
+    const passwordIssue = parsed.error.issues.find((issue) => issue.path[0] === "password");
+    return {
+      success: false,
+      error: passwordIssue?.message ?? "Please check your details and try again.",
+    };
   }
 
   const { name, email, password, role } = parsed.data;
@@ -106,9 +112,19 @@ export async function registerMember(data: unknown): Promise<ActionResult> {
  * (fresh Google signup) to their chosen talent/employer role.
  */
 export async function saveMemberProfile(input: unknown): Promise<ActionResult> {
-  const user = await getCurrentUser();
+  const user = await getCurrentAccount();
   if (!user) {
     return { success: false, error: "You must be signed in to save your profile." };
+  }
+
+  // A server action is a public endpoint: the redirect on /profile-setup keeps
+  // an unverified member out of the form, but only this check keeps them from
+  // POSTing to it directly.
+  if (!isEmailVerified(user)) {
+    return {
+      success: false,
+      error: "Please verify your email address before setting up your profile.",
+    };
   }
 
   const parsed = saveProfileSchema.safeParse(input);
@@ -250,7 +266,11 @@ export async function requestPasswordReset(input: unknown): Promise<ActionResult
 export async function resetPassword(input: unknown): Promise<ActionResult> {
   const parsed = resetPasswordSchema.safeParse(input);
   if (!parsed.success) {
-    return { success: false, error: "Password must be at least 8 characters." };
+    const passwordIssue = parsed.error.issues.find((issue) => issue.path[0] === "password");
+    return {
+      success: false,
+      error: passwordIssue?.message ?? "This reset link is invalid or has expired.",
+    };
   }
   const token = await findValidAuthToken(hashToken(parsed.data.token), RESET_PASSWORD);
   if (!token) {

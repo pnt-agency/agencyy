@@ -26,6 +26,15 @@ describe("registerMemberSchema", () => {
     expect(registerMemberSchema.safeParse({ ...valid, email: "nope" }).success).toBe(false);
   });
 
+  it("accepts a weak but long-enough password", () => {
+    // Strength is advice, not a gate: the meter will call this "Very weak" and
+    // the form still submits it.
+    expect(registerMemberSchema.safeParse({ ...valid, password: "password123" }).success).toBe(true);
+    expect(
+      registerMemberSchema.safeParse({ ...valid, password: "JaneDoe-1990" }).success
+    ).toBe(true);
+  });
+
   it("rejects a role outside talent/employer", () => {
     expect(registerMemberSchema.safeParse({ ...valid, role: "admin" }).success).toBe(false);
     expect(registerMemberSchema.safeParse({ ...valid, role: "user" }).success).toBe(false);

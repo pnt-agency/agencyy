@@ -1,5 +1,6 @@
 import * as z from "zod";
 import { TALENT_ROLES } from "./roles";
+import { MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH } from "./password";
 
 // Server-authoritative schemas for the public submission actions.
 // The apply/hire pages validate on the client for UX; these are re-checked
@@ -59,10 +60,18 @@ export type EmployerInput = z.infer<typeof employerInputSchema>;
 
 export const memberRoleEnum = z.enum(["talent", "employer"]);
 
+// Length is the only enforced password rule. Strength (common passwords,
+// character variety, personal info) is scored in lib/password.ts and shown to
+// the user as live advice — the forms never refuse a password over it.
+const passwordField = z
+  .string()
+  .min(MIN_PASSWORD_LENGTH, `Password must be at least ${MIN_PASSWORD_LENGTH} characters`)
+  .max(MAX_PASSWORD_LENGTH);
+
 export const registerMemberSchema = z.object({
   name: z.string().trim().min(2, "Name is required").max(120),
   email: z.string().trim().toLowerCase().email("Invalid email address").max(254),
-  password: z.string().min(8, "Password must be at least 8 characters").max(200),
+  password: passwordField,
   role: memberRoleEnum,
 });
 
@@ -102,7 +111,7 @@ export const requestResetSchema = z.object({
 
 export const resetPasswordSchema = z.object({
   token: z.string().min(1),
-  password: z.string().min(8, "Password must be at least 8 characters").max(200),
+  password: passwordField,
 });
 
 export const expressInterestSchema = z.object({

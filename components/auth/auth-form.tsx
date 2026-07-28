@@ -4,8 +4,11 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { ArrowRight, Mail, KeyRound, User, Briefcase } from "lucide-react";
+import { ArrowRight, Mail, User, Briefcase } from "lucide-react";
 import { registerMember } from "@/app/auth-actions";
+import { PasswordInput } from "@/components/ui/password-input";
+import { PasswordStrength } from "@/components/auth/password-strength";
+import { MIN_PASSWORD_LENGTH } from "@/lib/password";
 
 type Mode = "signin" | "signup";
 type Role = "talent" | "employer";
@@ -51,7 +54,10 @@ export function AuthForm({ oauthError = null }: { oauthError?: string | null }) 
         return;
       }
 
-      router.push(mode === "signup" ? "/profile-setup" : "/dashboard");
+      // A brand-new password account has an unverified address, and the profile
+      // is gated behind verification — so send them to the "check your inbox"
+      // screen rather than a profile form they'd be bounced out of.
+      router.push(mode === "signup" ? "/verify-email" : "/dashboard");
       router.refresh();
     } finally {
       setLoading(false);
@@ -167,18 +173,25 @@ export function AuthForm({ oauthError = null }: { oauthError?: string | null }) 
 
             <div>
               <label htmlFor="password" className="block text-sm font-semibold mb-1.5 text-white/80">Password</label>
-              <div className="relative">
-                <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
-                <input
-                  id="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={mode === "signup" ? "At least 8 characters" : "••••••••"}
-                  className="w-full pl-12 pr-4 py-3.5 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/50 transition-all text-white placeholder:text-white/30"
-                />
-              </div>
+              <PasswordInput
+                id="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                // Length is the one hard rule, so let the browser catch it
+                // before a round trip. Not applied on sign-in: an existing
+                // password is whatever it is.
+                minLength={mode === "signup" ? MIN_PASSWORD_LENGTH : undefined}
+                placeholder={mode === "signup" ? `At least ${MIN_PASSWORD_LENGTH} characters` : "••••••••"}
+              />
+              {/* Strength feedback belongs to choosing a password, not typing an
+                  existing one — showing it on sign-in would just grade the
+                  password they already have. It only ever advises: a weak
+                  password still submits. */}
+              {mode === "signup" && (
+                <PasswordStrength password={password} email={email} name={name} />
+              )}
             </div>
 
             {mode === "signin" && (

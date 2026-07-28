@@ -3,8 +3,11 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { KeyRound, CheckCircle2 } from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 import { resetPassword } from "@/app/auth-actions";
+import { PasswordInput } from "@/components/ui/password-input";
+import { PasswordStrength } from "@/components/auth/password-strength";
+import { MIN_PASSWORD_LENGTH } from "@/lib/password";
 
 export function ResetPasswordForm({ token }: { token: string }) {
   const router = useRouter();
@@ -68,33 +71,31 @@ export function ResetPasswordForm({ token }: { token: string }) {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-1.5">New password</label>
-          <div className="relative">
-            <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              id="password"
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="At least 8 characters"
-              className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-black bg-gray-50 focus:bg-white transition-all"
-            />
-          </div>
+          <PasswordInput
+            id="password"
+            tone="light"
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+            minLength={MIN_PASSWORD_LENGTH}
+            placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+            className="py-3"
+          />
+          <PasswordStrength password={password} tone="light" />
         </div>
         <div>
           <label htmlFor="confirm" className="block text-sm font-semibold text-gray-700 mb-1.5">Confirm password</label>
-          <div className="relative">
-            <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              id="confirm"
-              type="password"
-              required
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              placeholder="Re-enter your password"
-              className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-black bg-gray-50 focus:bg-white transition-all"
-            />
-          </div>
+          <PasswordInput
+            id="confirm"
+            tone="light"
+            required
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+            autoComplete="new-password"
+            placeholder="Re-enter your password"
+            className="py-3"
+          />
         </div>
         {error && <p role="alert" className="text-red-600 text-sm">{error}</p>}
         <button

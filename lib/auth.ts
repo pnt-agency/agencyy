@@ -5,7 +5,7 @@ import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { getServerSession } from "next-auth/next";
 import { db } from "./db";
-import { users } from "./db/schema";
+import { users, type UserRow } from "./db/schema";
 import { sendWelcomeEmail } from "./resend";
 import { appBaseUrl } from "./tokens";
 
@@ -167,4 +167,35 @@ export async function getAdminSession(): Promise<Session | null> {
 export async function getCurrentUser(): Promise<Session["user"] | null> {
   const session = await getServerSession(authOptions);
   return session?.user ?? null;
+}
+
+/**
+ * The signed-in member's database row, or null when signed out (or when the
+ * session outlived the account). Prefer this over getCurrentUser() wherever the
+ * answer depends on state the JWT doesn't refresh — role changes and, above
+ * all, emailVerified: a token minted at signup says "unverified" forever, so
+ * trusting it would keep someone locked out after they clicked the link.
+ */
+export async function getCurrentAccount(): Promise<UserRow | null> {
+  const session = await getServerSession(authOptions);
+  const email = session?.user?.email;
+  if (!email) return null;
+
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, email.trim().toLowerCase()));
+  return user ?? null;
+}
+
+/**
+ * Whether this account may reach member-only profile surfaces.
+ *
+ * Google accounts arrive with emailVerified already stamped by the signIn
+ * callback (Google has proven the address), so in practice this only gates
+ * email+password signups until they click their link. Admins are exempt-by-
+ * construction: the seeded admin is created verified.
+ */
+export function isEmailVerified(account: UserRow | null): boolean {
+  return Boolean(account?.emailVerified);
 }
