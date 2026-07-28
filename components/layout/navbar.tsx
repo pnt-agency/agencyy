@@ -19,11 +19,11 @@ export function Navbar() {
   const [showLogoutPrompt, setShowLogoutPrompt] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
-  const { data: session, status } = useSession();
+  // The navbar no longer varies by role — every destination in it is either
+  // public or shown to any signed-in member.
+  const { status } = useSession();
   const isLoggedIn = status === "authenticated";
-  const role = session?.user?.role;
-  const isEmployer = role === "employer";
-  
+
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const notifRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
@@ -100,7 +100,9 @@ export function Navbar() {
   const links = [
     { href: homeHref, label: "Home" },
     { href: "/about", label: "About" },
-    { href: "/apply", label: "For Talent" },
+    // /apply is deliberately absent: the "For Talent" CTA button on the right
+    // already goes there, and two controls with the same label in one bar read
+    // as a bug rather than emphasis.
     { href: "/hire", label: "For Employers" },
     // Member-only destinations — hidden until authenticated (they redirect anyway).
     ...(isLoggedIn ? [{ href: "/training", label: "Training" }] : []),
@@ -227,26 +229,20 @@ export function Navbar() {
             {pathname !== "/" && (
               <Link href="/apply">
                 <button className={`px-5 py-2 text-sm font-semibold border rounded-xl transition-all duration-300 ${isDarkBg && !scrolled ? "text-white border-white/30 hover:border-white hover:bg-white/10" : "text-black border-black/20 hover:border-black hover:bg-black/5"}`}>
-                  Apply as Talent
+                  For Talent
                 </button>
               </Link>
             )}
+            {/* No employer-specific /hire button: "For Employers" is already in
+                the nav for everyone, and a second control with the same label
+                read as a duplicate rather than emphasis. */}
             {isLoggedIn && pathname !== "/" && (
-              <>
-                {isEmployer && (
-                  <Link href="/hire">
-                    <button className={`px-5 py-2 text-sm font-bold rounded-xl hover:scale-105 transition-all duration-300 shadow-md ${isDarkBg && !scrolled ? "text-black bg-white hover:bg-white/90" : "text-white bg-black hover:bg-black/80"}`}>
-                      Hire Talent →
-                    </button>
-                  </Link>
-                )}
-                <button
-                  onClick={() => setShowLogoutPrompt(true)}
-                  className="px-5 py-2 text-sm font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 hover:scale-105 transition-all duration-300 shadow-md"
-                >
-                  Logout
-                </button>
-              </>
+              <button
+                onClick={() => setShowLogoutPrompt(true)}
+                className="px-5 py-2 text-sm font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 hover:scale-105 transition-all duration-300 shadow-md"
+              >
+                Logout
+              </button>
             )}
           </div>
 
@@ -278,23 +274,16 @@ export function Navbar() {
             <div className="flex flex-col gap-2 pt-2 border-t border-black/10">
               {pathname !== "/" && (
                 <Link href="/apply" onClick={() => setMenuOpen(false)}>
-                  <button className="w-full py-2.5 text-sm font-semibold text-black border border-black/20 rounded-xl hover:bg-black/5">Apply as Talent</button>
+                  <button className="w-full py-2.5 text-sm font-semibold text-black border border-black/20 rounded-xl hover:bg-black/5">For Talent</button>
                 </Link>
               )}
               {isLoggedIn && pathname !== "/" && (
-                <>
-                  {isEmployer && (
-                    <Link href="/hire" onClick={() => setMenuOpen(false)}>
-                      <button className="w-full py-2.5 text-sm font-bold text-white bg-black rounded-xl">Hire Talent →</button>
-                    </Link>
-                  )}
-                  <button
-                    onClick={() => setShowLogoutPrompt(true)}
-                    className="w-full py-2.5 text-sm font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors"
-                  >
-                    Logout
-                  </button>
-                </>
+                <button
+                  onClick={() => setShowLogoutPrompt(true)}
+                  className="w-full py-2.5 text-sm font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors"
+                >
+                  Logout
+                </button>
               )}
             </div>
           </nav>

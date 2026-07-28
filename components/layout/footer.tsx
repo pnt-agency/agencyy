@@ -1,6 +1,28 @@
+"use client";
+
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 
 export function Footer() {
+  // Reading the session on the client, the way the navbar does, rather than
+  // making this an async server component. A server-side session read touches
+  // cookies, which would opt every marketing page out of static prerendering
+  // just to decide whether one link renders.
+  const { status } = useSession();
+  const isLoggedIn = status === "authenticated";
+
+  // Labels deliberately match the navbar's for the same routes. When a page is
+  // called "For Employers" up top and "Hire Talent" down here, there's no way
+  // for a visitor to tell it's the same destination.
+  const platformLinks = [
+    { href: "/hire", label: "For Employers" },
+    { href: "/apply", label: "For Talent" },
+    { href: "/about", label: "About" },
+    // Members only: /training redirects signed-out visitors to the sign-in
+    // page, and signed-out visitors are most of who reads a footer.
+    ...(isLoggedIn ? [{ href: "/training", label: "Training" }] : []),
+  ];
+
   return (
     <footer className="bg-black text-white">
       {/* Top border line */}
@@ -28,12 +50,7 @@ export function Footer() {
           <div className="md:col-span-3">
             <h3 className="text-gold font-display font-bold mb-5 text-sm uppercase tracking-widest">Platform</h3>
             <ul className="space-y-3">
-              {[
-                { href: "/hire",     label: "Hire Talent" },
-                { href: "/apply",    label: "Apply as Talent" },
-                { href: "/about",    label: "About Us" },
-                { href: "/training", label: "Talent Training" },
-              ].map((link) => (
+              {platformLinks.map((link) => (
                 <li key={link.href}>
                   <Link
                     href={link.href}
