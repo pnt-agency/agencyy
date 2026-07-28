@@ -123,14 +123,14 @@ export default async function AdminDashboard({
   const employerPage = paginate(filteredEmployers, Number(ep) || 1);
 
   return (
-    <div className="flex-1 bg-gray-50 p-8">
+    <div className="flex-1 bg-gray-50 px-4 pt-28 pb-8 sm:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="mb-8 flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
           <div>
-            <h1 className="text-3xl font-bold text-navy">Admin Dashboard</h1>
+            <h1 className="text-3xl font-bold text-ink">Admin Dashboard</h1>
             <p className="text-gray-600">Welcome back, {session.user?.name}</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <Link href="/admin/directory" className="text-sm font-semibold text-gray-600 hover:text-black">Talent Directory</Link>
             <Link href="/admin/interests" className="text-sm font-semibold text-gray-600 hover:text-black">Interests</Link>
             <Link href="/admin/users" className="text-sm font-semibold text-gray-600 hover:text-black">Users</Link>
@@ -142,7 +142,7 @@ export default async function AdminDashboard({
         {/* Talent Tracker */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-8">
           <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-            <h2 className="text-lg font-bold text-navy">Talent Pipeline</h2>
+            <h2 className="text-lg font-bold text-ink">Talent Pipeline</h2>
             <SearchForm
               name="tq"
               value={tq}
@@ -207,7 +207,7 @@ export default async function AdminDashboard({
         {/* Employer Tracker */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-            <h2 className="text-lg font-bold text-navy">Employer Inquiries</h2>
+            <h2 className="text-lg font-bold text-ink">Employer Inquiries</h2>
             <SearchForm
               name="eq"
               value={eq}
@@ -245,7 +245,7 @@ export default async function AdminDashboard({
                     <td className="px-6 py-4 text-gray-600">{employer.roleNeeded}</td>
                     <td className="px-6 py-4 text-gray-600">{employer.budget}</td>
                     <td className="px-6 py-4">
-                      <Badge variant={employer.status === "New Inquiry" ? "warning" : "navy"}>
+                      <Badge variant={employer.status === "New Inquiry" ? "warning" : "ink"}>
                         {employer.status}
                       </Badge>
                     </td>

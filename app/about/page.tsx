@@ -12,7 +12,7 @@ export default function AboutPage() {
   return (
     <div className="flex-1 flex flex-col w-full bg-white">
       {/* Header */}
-      <section className="bg-navy text-white py-20">
+      <section className="bg-ink text-white py-20">
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-4xl lg:text-5xl font-bold tracking-tight mb-6">About Amaris Partners</h1>
           <p className="text-xl text-gray-300 max-w-2xl mx-auto">
@@ -25,7 +25,7 @@ export default function AboutPage() {
       <section className="py-20">
         <div className="container mx-auto px-4 max-w-4xl">
           <div className="mb-16">
-            <h2 className="text-3xl font-bold text-navy mb-6">How We Are Different</h2>
+            <h2 className="text-3xl font-bold text-ink mb-6">How We Are Different</h2>
             <div className="prose prose-lg text-gray-600 max-w-none">
               <p className="mb-4">
                 Most talent platforms leave employers to do the heavy lifting: sifting through hundreds of resumes, interviewing unvetted candidates, and hoping for the best. On the flip side, talented professionals often struggle to stand out in a sea of applicants.
@@ -38,7 +38,7 @@ export default function AboutPage() {
 
           {/* Verification Process */}
           <div className="mb-16 bg-gray-50 p-8 md:p-12 rounded-2xl border border-gray-100">
-            <h2 className="text-3xl font-bold text-navy mb-8">The Verification Process</h2>
+            <h2 className="text-3xl font-bold text-ink mb-8">The Verification Process</h2>
             <div className="space-y-6">
               {[
                 { step: "1", title: "Application & Portfolio Review", text: "We review each candidate's experience, skills, and past work." },
@@ -48,11 +48,11 @@ export default function AboutPage() {
                 { step: "5", title: "Verified & Placed", text: "Only those who pass all stages receive the Verified Badge and enter our active placement pool." }
               ].map((item) => (
                 <div key={item.step} className="flex items-start gap-4">
-                  <div className="w-8 h-8 rounded-full bg-navy text-white font-bold flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-ink text-white font-bold flex items-center justify-center shrink-0">
                     {item.step}
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-navy">{item.title}</h3>
+                    <h3 className="text-lg font-bold text-ink">{item.title}</h3>
                     <p className="text-gray-600">{item.text}</p>
                   </div>
                 </div>
@@ -62,13 +62,13 @@ export default function AboutPage() {
 
           {/* Core Values */}
           <div>
-            <h2 className="text-3xl font-bold text-navy mb-8 text-center">Our Core Values</h2>
+            <h2 className="text-3xl font-bold text-ink mb-8 text-center">Our Core Values</h2>
             <div className="grid sm:grid-cols-2 gap-6">
               {values.map((val) => (
                 <div key={val.title} className="p-6 border border-gray-100 rounded-xl shadow-sm">
                   <div className="flex items-center gap-3 mb-3">
                     <CheckCircle2 className="w-6 h-6 text-gold" />
-                    <h3 className="text-xl font-bold text-navy">{val.title}</h3>
+                    <h3 className="text-xl font-bold text-ink">{val.title}</h3>
                   </div>
                   <p className="text-gray-600">{val.desc}</p>
                 </div>

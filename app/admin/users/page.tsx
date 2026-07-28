@@ -23,29 +23,29 @@ export default async function AdminUsersPage({
     : all;
 
   return (
-    <div className="flex-1 bg-gray-50 p-8">
+    <div className="flex-1 bg-gray-50 px-4 pt-28 pb-8 sm:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="mb-8 flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
           <div>
-            <h1 className="text-3xl font-bold text-navy">User Accounts</h1>
+            <h1 className="text-3xl font-bold text-ink">User Accounts</h1>
             <p className="text-gray-600">
               Change what an account can do. Promoting to admin grants full access to this dashboard.
             </p>
           </div>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <Link href="/admin" className={navLink}>← Pipeline</Link>
             <Link href="/admin/directory" className={navLink}>Directory</Link>
             <Link href="/admin/interests" className={navLink}>Interests →</Link>
           </div>
         </div>
 
-        <form method="get" action="/admin/users" className="mb-4 flex items-center gap-2">
+        <form method="get" action="/admin/users" className="mb-4 flex flex-wrap items-center gap-2">
           <input
             type="text"
             name="q"
             defaultValue={q}
             placeholder="Search name, email, role…"
-            className="w-72 rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+            className="w-full sm:w-72 rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
           />
           <button type="submit" className="rounded-md bg-black px-3 py-1.5 text-sm font-semibold text-white hover:bg-black/85">Search</button>
           {q && <Link href="/admin/users" className="text-sm text-gray-500 hover:text-black">Clear</Link>}

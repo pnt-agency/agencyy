@@ -49,7 +49,7 @@ export function InterestStatusUpdater({
                   type="button"
                   onClick={() => handleSelect(status)}
                   className={`block w-full px-4 py-2 text-sm hover:bg-gray-50 ${
-                    status === currentStatus ? "font-semibold text-navy" : "text-gray-700"
+                    status === currentStatus ? "font-semibold text-ink" : "text-gray-700"
                   }`}
                 >
                   {status}

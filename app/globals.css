@@ -10,6 +10,11 @@
   --color-paper-soft: #f5f5f5;
   --color-border: #e0e0e0;
   --color-border-dark: #2a2a2a;
+  /* Accent gold. Deliberately deeper than a metallic gold: `text-gold` is used
+     for small links (the admin status buttons), and a bright gold such as
+     #D4AF37 only reaches 2.1:1 on white — unreadable. This hits 4.9:1, which
+     clears WCAG AA for normal text. Lighten it only for large/decorative use. */
+  --color-gold: #8a6d1f;
 }
 
 :root {

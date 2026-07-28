@@ -11,11 +11,11 @@ function formatDate(date: Date) {
   return new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 }
 
-function statusVariant(status: string): "success" | "warning" | "navy" | "default" {
+function statusVariant(status: string): "success" | "warning" | "ink" | "default" {
   if (status === "Intro Made") return "success";
   if (status === "Pending") return "warning";
   if (status === "Closed") return "default";
-  return "navy";
+  return "ink";
 }
 
 export default async function AdminInterestsPage() {
@@ -25,14 +25,14 @@ export default async function AdminInterestsPage() {
   const interests = await listInterests();
 
   return (
-    <div className="flex-1 bg-gray-50 p-8">
+    <div className="flex-1 bg-gray-50 px-4 pt-28 pb-8 sm:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="mb-8 flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
           <div>
-            <h1 className="text-3xl font-bold text-navy">Interest Requests</h1>
+            <h1 className="text-3xl font-bold text-ink">Interest Requests</h1>
             <p className="text-gray-600">Employers who want an intro to a talent. Make the connection, then move the status.</p>
           </div>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <Link href="/admin" className={navLink}>← Pipeline</Link>
             <Link href="/admin/directory" className={navLink}>Directory</Link>
             <Link href="/admin/users" className={navLink}>Users →</Link>

@@ -25,27 +25,27 @@ export default async function AdminDirectoryPage({
     : all;
 
   return (
-    <div className="flex-1 bg-gray-50 p-8">
+    <div className="flex-1 bg-gray-50 px-4 pt-28 pb-8 sm:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="mb-8 flex flex-col gap-4 md:flex-row md:justify-between md:items-center">
           <div>
-            <h1 className="text-3xl font-bold text-navy">Talent Directory</h1>
+            <h1 className="text-3xl font-bold text-ink">Talent Directory</h1>
             <p className="text-gray-600">Verify talent accounts to list them in the employer directory.</p>
           </div>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <Link href="/admin" className={navLink}>← Pipeline</Link>
             <Link href="/admin/interests" className={navLink}>Interests</Link>
             <Link href="/admin/users" className={navLink}>Users →</Link>
           </div>
         </div>
 
-        <form method="get" action="/admin/directory" className="mb-4 flex items-center gap-2">
+        <form method="get" action="/admin/directory" className="mb-4 flex flex-wrap items-center gap-2">
           <input
             type="text"
             name="q"
             defaultValue={q}
             placeholder="Search name, email, role, skills…"
-            className="w-72 rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+            className="w-full sm:w-72 rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
           />
           <button type="submit" className="rounded-md bg-black px-3 py-1.5 text-sm font-semibold text-white hover:bg-black/85">Search</button>
           {q && <Link href="/admin/directory" className="text-sm text-gray-500 hover:text-black">Clear</Link>}

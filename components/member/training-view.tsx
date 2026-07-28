@@ -136,7 +136,7 @@ export function TrainingView() {
     <div className="flex-1 bg-gray-50 py-12">
       <div className="container mx-auto px-4 max-w-4xl">
         <div className="mb-10">
-          <h1 className="text-3xl font-bold text-navy mb-4">Talent Verification Training</h1>
+          <h1 className="text-3xl font-bold text-ink mb-4">Talent Verification Training</h1>
           <p className="text-gray-600">
             Complete these 5 modules and the associated quizzes to earn your Verified Badge.
           </p>
@@ -150,10 +150,10 @@ export function TrainingView() {
                   <div className="flex items-center gap-3 mb-3">
                     <span className="text-sm font-bold text-gold">Module {mod.id}</span>
                     {mod.status === "Completed" && <Badge variant="success">Completed</Badge>}
-                    {mod.status === "Available" && <Badge variant="navy">Available</Badge>}
+                    {mod.status === "Available" && <Badge variant="ink">Available</Badge>}
                     {mod.status === "Locked" && <Badge variant="default">Locked</Badge>}
                   </div>
-                  <h2 className="text-2xl font-bold text-navy mb-3">{mod.title}</h2>
+                  <h2 className="text-2xl font-bold text-ink mb-3">{mod.title}</h2>
                   <p className="text-gray-600 mb-6">{mod.description}</p>
 
                   <div className="flex items-center gap-4 text-sm font-medium text-gray-500 mb-6">
@@ -198,7 +198,7 @@ export function TrainingView() {
               {(mod.status === "Available" || mod.status === "Completed") && (
                 <div className="bg-gray-50 p-6 md:p-8 border-t border-gray-100">
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-navy">Module {mod.id} Quiz</h3>
+                    <h3 className="font-bold text-ink">Module {mod.id} Quiz</h3>
                     {mod.status === "Completed" && <span className="text-green-600 font-bold text-sm flex items-center gap-1"><CheckCircle2 className="w-4 h-4"/> Passed</span>}
                   </div>
 
