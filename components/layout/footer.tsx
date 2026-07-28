@@ -54,7 +54,9 @@ export function Footer() {
               {[
                 { href: "/privacy", label: "Privacy Policy" },
                 { href: "/terms",   label: "Terms of Service" },
-                { href: "/admin",   label: "Admin Login" },
+                // No admin entry point here on purpose: it never logged anyone
+                // in (/admin redirects non-admins to the sign-in page), and an
+                // admin already reaches it from their dashboard.
               ].map((link) => (
                 <li key={link.label}>
                   <Link
