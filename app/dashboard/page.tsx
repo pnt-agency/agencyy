@@ -21,11 +21,19 @@ export default async function DashboardPage() {
     redirect("/");
   }
 
-  const isEmployer = user.role === "employer";
+  // Resolve the role from the database, not the session token. The JWT caches
+  // whatever role the account held when it signed in and never refreshes it
+  // (see the jwt callback in lib/auth.ts — it only queries when role is unset),
+  // so a promoted admin would keep seeing the talent dashboard, pending-review
+  // banner and all, until their token expired. getAdminSession() already treats
+  // the database as authoritative; this makes the dashboard agree with it.
+  const account = await getUserByEmail(user.email);
+  const role = account?.role ?? user.role;
+  const isEmployer = role === "employer";
 
-  // Fetch the account row (for createdAt) and role-specific real metrics.
-  const [account, talentProfile, employerProfile, leadCount, interestCount] = await Promise.all([
-    getUserByEmail(user.email),
+  // Role-specific metrics. Only talent/employer own a profile, so an admin
+  // fetches nothing and the view hides those panels.
+  const [talentProfile, employerProfile, leadCount, interestCount] = await Promise.all([
     isEmployer ? Promise.resolve(null) : getTalentProfile(user.id),
     isEmployer ? getEmployerProfile(user.id) : Promise.resolve(null),
     isEmployer
@@ -60,7 +68,7 @@ export default async function DashboardPage() {
   return (
     <DashboardView
       name={user.name ?? "there"}
-      role={user.role}
+      role={role}
       email={user.email}
       memberSince={memberSince}
       profileCompleteness={profileCompleteness}
