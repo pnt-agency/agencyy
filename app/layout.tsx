@@ -5,7 +5,7 @@ import { Footer } from "@/components/layout/footer";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "Agency Build | Vetted Remote Talent",
+  title: "Amaris Partners | Vetted Remote Talent",
   description: "Connecting screened, trained, and verified remote talent with companies worldwide.",
 };
 

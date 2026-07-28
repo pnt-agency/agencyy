@@ -70,7 +70,7 @@ export function AuthForm({ oauthError = null }: { oauthError?: string | null }) 
 
         <div className="relative z-10">
           <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center font-black text-black text-xl mb-6">
-            AB
+            AP
           </div>
           <h1 className="text-5xl font-display font-black leading-tight max-w-lg">
             Build your dream remote team, effortlessly.
@@ -232,7 +232,7 @@ export function AuthForm({ oauthError = null }: { oauthError?: string | null }) 
           </p>
 
           <p className="mt-6 text-center text-xs text-white/30 max-w-xs mx-auto">
-            By continuing, you agree to Agency Build&apos;s{" "}
+            By continuing, you agree to Amaris Partners&apos;s{" "}
             <Link href="/terms" className="underline hover:text-white/60">Terms of Service</Link> and{" "}
             <Link href="/privacy" className="underline hover:text-white/60">Privacy Policy</Link>.
           </p>

@@ -277,7 +277,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="max-w-xl mb-16">
             <div className="reveal inline-flex items-center gap-2 border border-black/15 rounded-full px-4 py-1.5 mb-5 bg-black/3">
-              <span className="text-black text-xs font-bold uppercase tracking-widest">Why Agency Build</span>
+              <span className="text-black text-xs font-bold uppercase tracking-widest">Why Amaris Partners</span>
             </div>
             <h2 className="reveal font-display text-5xl font-black text-black leading-tight mb-4">
               The standard for<br />remote talent.
@@ -495,7 +495,7 @@ export default function Home() {
           <div className="max-w-2xl mx-auto mt-24 p-8 border border-black/10 rounded-3xl bg-black/2 reveal">
             <div className="text-center mb-6">
               <h3 className="font-display text-2xl font-bold text-black mb-2">Leave a Review</h3>
-              <p className="text-black/50 text-sm">Share your experience with Agency Build.</p>
+              <p className="text-black/50 text-sm">Share your experience with Amaris Partners.</p>
             </div>
             
             <div className="flex gap-2 p-1.5 bg-black/5 border border-black/10 rounded-2xl w-fit mx-auto mb-8">
@@ -570,7 +570,7 @@ export default function Home() {
           </h2>
 
           <p className="reveal text-white/45 text-xl mb-12 max-w-lg mx-auto leading-relaxed">
-            Find your ideal remote talent through Agency Build.
+            Find your ideal remote talent through Amaris Partners.
           </p>
 
           <div className="reveal flex flex-col sm:flex-row gap-4 justify-center">

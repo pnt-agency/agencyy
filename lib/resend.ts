@@ -12,9 +12,9 @@ const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KE
 // Mail to anyone else is rejected, so member-facing email (confirmations,
 // verification, password resets) silently fails until a domain is verified.
 // Once you've verified one at resend.com/domains, set EMAIL_FROM to an address
-// on it (e.g. "Agency Build <noreply@yourdomain.com>") and all of it starts
+// on it (e.g. "Amaris Partners <noreply@yourdomain.com>") and all of it starts
 // working — no code change.
-const EMAIL_FROM = process.env.EMAIL_FROM ?? "Agency Build <onboarding@resend.dev>";
+const EMAIL_FROM = process.env.EMAIL_FROM ?? "Amaris Partners <onboarding@resend.dev>";
 
 // Basic HTML escaping so user-supplied fields can't inject markup into the
 // notification emails we send to ourselves.
@@ -34,11 +34,11 @@ export async function sendVerificationEmail(email: string, name: string, url: st
   const { data, error } = await resend.emails.send({
     from: EMAIL_FROM,
     to: email,
-    subject: "Verify your email - Agency Build",
+    subject: "Verify your email - Amaris Partners",
     html: `
       <div>
         <h2>Hi ${esc(name)},</h2>
-        <p>Welcome to Agency Build! Please confirm your email address to finish setting up your account.</p>
+        <p>Welcome to Amaris Partners! Please confirm your email address to finish setting up your account.</p>
         <p><a href="${url}">Verify my email</a></p>
         <p>Or paste this link into your browser:<br />${esc(url)}</p>
         <p>This link expires in 24 hours.</p>
@@ -68,17 +68,17 @@ export async function sendWelcomeEmail(email: string, name: string, dashboardUrl
   const { data, error } = await resend.emails.send({
     from: EMAIL_FROM,
     to: email,
-    subject: "Welcome to Agency Build",
+    subject: "Welcome to Amaris Partners",
     html: `
       <div>
         <h2>Welcome, ${esc(name)}!</h2>
-        <p>Your Agency Build account is ready and your email address is confirmed.</p>
+        <p>Your Amaris Partners account is ready and your email address is confirmed.</p>
         <p>The next step is to complete your profile — it's what our team reviews, and for talent it's what employers see in the directory.</p>
         <p><a href="${dashboardUrl}">Go to my dashboard</a></p>
         <p>If you have any questions, just reply to this email.</p>
         <br />
         <p>Best regards,</p>
-        <p>The Agency Build Team</p>
+        <p>The Amaris Partners Team</p>
       </div>
     `,
   });
@@ -99,11 +99,11 @@ export async function sendPasswordResetEmail(email: string, url: string) {
   const { data, error } = await resend.emails.send({
     from: EMAIL_FROM,
     to: email,
-    subject: "Reset your password - Agency Build",
+    subject: "Reset your password - Amaris Partners",
     html: `
       <div>
         <h2>Reset your password</h2>
-        <p>We received a request to reset your Agency Build password. If this was you, click below to choose a new one.</p>
+        <p>We received a request to reset your Amaris Partners password. If this was you, click below to choose a new one.</p>
         <p><a href="${url}">Reset my password</a></p>
         <p>Or paste this link into your browser:<br />${esc(url)}</p>
         <p>This link expires in 1 hour. If you didn't request this, you can safely ignore this email.</p>
@@ -127,16 +127,16 @@ export async function sendTalentConfirmationEmail(email: string, name: string) {
   const { data: resendData, error } = await resend.emails.send({
     from: EMAIL_FROM,
     to: email,
-    subject: "Application Received - Agency Build",
+    subject: "Application Received - Amaris Partners",
     html: `
       <div>
         <h2>Hi ${name},</h2>
-        <p>Thank you for applying to Agency Build!</p>
+        <p>Thank you for applying to Amaris Partners!</p>
         <p>We have received your application and our team is currently reviewing your profile.</p>
         <p>If your experience aligns with our needs, we will reach out within 48 hours with next steps regarding the screening and training process.</p>
         <br />
         <p>Best regards,</p>
-        <p>The Agency Build Team</p>
+        <p>The Amaris Partners Team</p>
       </div>
     `,
   });
@@ -197,15 +197,15 @@ export async function sendEmployerConfirmationEmail(email: string, contactName: 
   const { data: resendData, error } = await resend.emails.send({
     from: EMAIL_FROM,
     to: email,
-    subject: "Inquiry Received - Agency Build",
+    subject: "Inquiry Received - Amaris Partners",
     html: `
       <div>
         <h2>Hi ${contactName},</h2>
-        <p>Thank you for reaching out to Agency Build.</p>
+        <p>Thank you for reaching out to Amaris Partners.</p>
         <p>We've received your request for verified remote talent. One of our account managers will review your requirements and get back to you within 24 hours.</p>
         <br />
         <p>Best regards,</p>
-        <p>The Agency Build Team</p>
+        <p>The Amaris Partners Team</p>
       </div>
     `,
   });

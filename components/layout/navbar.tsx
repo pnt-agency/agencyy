@@ -119,10 +119,10 @@ export function Navbar() {
           {/* Logo */}
           <Link href={homeHref} className="flex items-center gap-2 group">
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-md ${logoBgClass}`}>
-              <span className="font-black text-xs tracking-tight">AB</span>
+              <span className="font-black text-xs tracking-tight">AP</span>
             </div>
             <span className={`text-lg font-display font-bold tracking-tight ${textColorClass}`}>
-              Agency<span className="font-black">Build</span>
+              Amaris <span className="font-black">Partners</span>
             </span>
           </Link>
 

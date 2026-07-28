@@ -14,7 +14,7 @@ export default function AboutPage() {
       {/* Header */}
       <section className="bg-navy text-white py-20">
         <div className="container mx-auto px-4 text-center">
-          <h1 className="text-4xl lg:text-5xl font-bold tracking-tight mb-6">About Agency Build</h1>
+          <h1 className="text-4xl lg:text-5xl font-bold tracking-tight mb-6">About Amaris Partners</h1>
           <p className="text-xl text-gray-300 max-w-2xl mx-auto">
             Our mission is to bridge the gap between world-class remote talent and forward-thinking companies.
           </p>
@@ -31,7 +31,7 @@ export default function AboutPage() {
                 Most talent platforms leave employers to do the heavy lifting: sifting through hundreds of resumes, interviewing unvetted candidates, and hoping for the best. On the flip side, talented professionals often struggle to stand out in a sea of applicants.
               </p>
               <p>
-                <strong>Agency Build sits in the middle as your trusted partner.</strong> We don&apos;t just connect; we curate. We thoroughly screen, test, and train every professional in our network before they ever meet a client. Think of us as your external HR department for remote hiring, lean, fast, and highly reliable.
+                <strong>Amaris Partners sits in the middle as your trusted partner.</strong> We don&apos;t just connect; we curate. We thoroughly screen, test, and train every professional in our network before they ever meet a client. Think of us as your external HR department for remote hiring, lean, fast, and highly reliable.
               </p>
             </div>
           </div>

@@ -1,4 +1,4 @@
-# Agency Build
+# Amaris Partners
 
 ## Stack
 
@@ -105,7 +105,7 @@ Admin login now lives in Postgres instead of the old `ADMIN_EMAIL` /
 `ADMIN_PASSWORD` environment variables. Create your first admin with:
 
 ```bash
-npm run seed:admin -- admin@agencybuild.com "Admin Name" "a-strong-password"
+npm run seed:admin -- admin@amarispartners.com "Admin Name" "a-strong-password"
 ```
 
 Re-running this command with the same email updates that user's name and
@@ -256,7 +256,7 @@ failing. But while on the sandbox sender:
 
 To send to real users, verify a domain at [resend.com/domains](https://resend.com/domains)
 (add the DNS records it gives you), then set `EMAIL_FROM` to an address on that
-domain, e.g. `Agency Build <noreply@yourdomain.com>`. No code change is needed.
+domain, e.g. `Amaris Partners <noreply@yourdomain.com>`. No code change is needed.
 
 ### Subsequent schema changes
 

@@ -80,7 +80,7 @@ export function ProfileSetupForm({ initial }: { initial: ProfileInitial }) {
 
         <form onSubmit={handleSubmit} className="space-y-8">
           <div>
-            <span className="block text-sm font-bold text-gray-700 mb-3">How will you use Agency Build?</span>
+            <span className="block text-sm font-bold text-gray-700 mb-3">How will you use Amaris Partners?</span>
             <div className="grid grid-cols-2 gap-4">
               {([
                 { value: "employer", title: "I'm an Employer", desc: "Looking to hire verified talent", icon: Briefcase },

@@ -79,7 +79,7 @@ export default function ApplyPage() {
         </div>
         <h1 className="text-3xl font-bold text-black mb-4">Application Submitted!</h1>
         <p className="text-gray-600 max-w-md mx-auto mb-8">
-          Thank you for applying to Agency Build. We will review your application and be in touch soon regarding the next steps.
+          Thank you for applying to Amaris Partners. We will review your application and be in touch soon regarding the next steps.
         </p>
         <Button onClick={() => setIsSuccess(false)} variant="outline">Submit another application</Button>
       </div>
@@ -91,9 +91,9 @@ export default function ApplyPage() {
       <div className="container mx-auto px-4 max-w-3xl">
         <div className="bg-white p-8 md:p-12 rounded-2xl shadow-sm border border-gray-100">
           <div className="mb-10 text-center">
-            <h1 className="text-4xl font-display font-bold text-black mb-6">Join Agency Build</h1>
+            <h1 className="text-4xl font-display font-bold text-black mb-6">Join Amaris Partners</h1>
             <p className="text-gray-600 text-lg leading-relaxed max-w-2xl mx-auto">
-              Are you ready to elevate your career and work with the most innovative companies on the globe? At Agency Build, we believe that incredible talent should not be limited by geography. We are searching for passionate, dedicated, and skilled professionals who are ready to make a massive impact. When you join our verified network, you gain exclusive access to premier roles, continuous growth opportunities, and a community of like minded experts. Step into your future and show the world what you are truly capable of. Your next big break starts right here.
+              Are you ready to elevate your career and work with the most innovative companies on the globe? At Amaris Partners, we believe that incredible talent should not be limited by geography. We are searching for passionate, dedicated, and skilled professionals who are ready to make a massive impact. When you join our verified network, you gain exclusive access to premier roles, continuous growth opportunities, and a community of like minded experts. Step into your future and show the world what you are truly capable of. Your next big break starts right here.
             </p>
           </div>
 
@@ -194,7 +194,7 @@ export default function ApplyPage() {
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="whyJoin" className="text-sm font-medium text-black">Why do you want to join Agency Build? *</label>
+              <label htmlFor="whyJoin" className="text-sm font-medium text-black">Why do you want to join Amaris Partners? *</label>
               <textarea
                 id="whyJoin"
                 {...register("whyJoin")}

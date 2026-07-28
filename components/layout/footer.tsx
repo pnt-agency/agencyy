@@ -13,10 +13,10 @@ export function Footer() {
           <div className="md:col-span-5">
             <Link href="/" className="inline-flex items-center gap-2 mb-5 group">
               <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                <span className="text-black font-black text-xs">AB</span>
+                <span className="text-black font-black text-xs">AP</span>
               </div>
               <span className="text-xl font-display font-bold text-white tracking-tight">
-                AgencyBuild
+                Amaris Partners
               </span>
             </Link>
             <p className="text-sm text-white/50 max-w-xs leading-relaxed">
@@ -86,7 +86,7 @@ export function Footer() {
         {/* Bottom bar */}
         <div className="mt-12 pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-3">
           <p className="text-xs text-white/30">
-            © {new Date().getFullYear()} Agency Build. All rights reserved.
+            © {new Date().getFullYear()} Amaris Partners. All rights reserved.
           </p>
           <p className="text-xs text-white/30">
             Built for remote teams worldwide

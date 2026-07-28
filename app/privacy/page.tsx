@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Privacy Policy | Agency Build",
+  title: "Privacy Policy | Amaris Partners",
 };
 
 export default function PrivacyPolicyPage() {

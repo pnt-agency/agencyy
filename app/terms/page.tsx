@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Terms of Service | Agency Build",
+  title: "Terms of Service | Amaris Partners",
 };
 
 export default function TermsOfServicePage() {
@@ -19,7 +19,7 @@ export default function TermsOfServicePage() {
           <section>
             <h2 className="text-xl font-bold text-black mb-3">1. Acceptance of terms</h2>
             <p>
-              By accessing or using Agency Build, you agree to these Terms of Service. If you do not agree, please do
+              By accessing or using Amaris Partners, you agree to these Terms of Service. If you do not agree, please do
               not use the platform.
             </p>
           </section>
@@ -43,7 +43,7 @@ export default function TermsOfServicePage() {
           <section>
             <h2 className="text-xl font-bold text-black mb-3">4. Talent & employer relationships</h2>
             <p>
-              Agency Build facilitates connections between talent and employers. We do not guarantee placements,
+              Amaris Partners facilitates connections between talent and employers. We do not guarantee placements,
               hiring outcomes, or the conduct of any party. Engagements between talent and employers are between those
               parties.
             </p>
@@ -52,7 +52,7 @@ export default function TermsOfServicePage() {
           <section>
             <h2 className="text-xl font-bold text-black mb-3">5. Intellectual property</h2>
             <p>
-              The platform and its content are owned by Agency Build and protected by applicable laws. You retain
+              The platform and its content are owned by Amaris Partners and protected by applicable laws. You retain
               rights to the content you submit but grant us a license to use it to operate the service.
             </p>
           </section>
@@ -61,7 +61,7 @@ export default function TermsOfServicePage() {
             <h2 className="text-xl font-bold text-black mb-3">6. Limitation of liability</h2>
             <p>
               The service is provided &ldquo;as is&rdquo; without warranties of any kind. To the maximum extent
-              permitted by law, Agency Build is not liable for any indirect or consequential damages arising from your
+              permitted by law, Amaris Partners is not liable for any indirect or consequential damages arising from your
               use of the platform.
             </p>
           </section>

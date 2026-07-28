@@ -89,7 +89,7 @@ export default function HirePage() {
         </div>
         <h1 className="text-3xl font-bold text-black mb-4">Inquiry Received!</h1>
         <p className="text-gray-600 max-w-md mx-auto mb-8">
-          Thank you for your interest in hiring through Agency Build. An account manager will reach out to you within 24 hours to discuss your needs.
+          Thank you for your interest in hiring through Amaris Partners. An account manager will reach out to you within 24 hours to discuss your needs.
         </p>
         <Button onClick={() => setIsSuccess(false)} variant="outline">Submit another inquiry</Button>
       </div>
@@ -103,7 +103,7 @@ export default function HirePage() {
           <div className="mb-10 text-center">
             <h1 className="text-4xl font-display font-bold text-black mb-6">Hire Verified Talent</h1>
             <p className="text-gray-600 text-lg leading-relaxed max-w-2xl mx-auto">
-              Are you looking to scale your business with the best professionals in the industry? At Agency Build, we understand that finding reliable, highly skilled experts can be a challenge. That is why we have cultivated an elite network of meticulously vetted talent ready to integrate seamlessly into your operations. Whether you need specialized expertise or dedicated support to drive your company forward, our streamlined process ensures you get matched with exactly who you need. Transform the way you work and build the remote team you have always envisioned right here.
+              Are you looking to scale your business with the best professionals in the industry? At Amaris Partners, we understand that finding reliable, highly skilled experts can be a challenge. That is why we have cultivated an elite network of meticulously vetted talent ready to integrate seamlessly into your operations. Whether you need specialized expertise or dedicated support to drive your company forward, our streamlined process ensures you get matched with exactly who you need. Transform the way you work and build the remote team you have always envisioned right here.
             </p>
           </div>
 

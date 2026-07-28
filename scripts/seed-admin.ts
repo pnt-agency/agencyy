@@ -2,7 +2,7 @@
  * Creates (or updates) an admin user in Postgres.
  *
  * Usage:
- *   npm run seed:admin -- admin@agencybuild.com "Admin Name" "supersecretpassword"
+ *   npm run seed:admin -- admin@amarispartners.com "Admin Name" "supersecretpassword"
  *
  * Run this once after `docker compose up -d` + migrations, to replace the old
  * ADMIN_EMAIL / ADMIN_PASSWORD env-based login.
@@ -17,7 +17,7 @@ async function main() {
 
   if (!rawEmail || !name || !password) {
     console.error(
-      'Usage: npm run seed:admin -- admin@agencybuild.com "Admin Name" "password"'
+      'Usage: npm run seed:admin -- admin@amarispartners.com "Admin Name" "password"'
     );
     process.exit(1);
   }
