@@ -28,7 +28,14 @@ export function DashboardView({
   listed = false,
   interestCount = 0,
 }: DashboardViewProps) {
-  const isTalent = role !== "employer";
+  // Roles are "talent" | "employer" | "admin" | "user". Test each explicitly —
+  // treating "not employer" as talent shows admins (and fresh Google signups,
+  // who are still "user" until they pick one) a talent's directory-listing
+  // status, training prompts and application counters that don't apply to them.
+  const isTalent = role === "talent";
+  const isEmployer = role === "employer";
+  const isAdmin = role === "admin";
+  const roleChosen = isTalent || isEmployer;
 
   const [resendState, setResendState] = useState<"idle" | "sent" | "error">("idle");
   const [isResending, startResend] = useTransition();
@@ -43,20 +50,33 @@ export function DashboardView({
   // Real, actionable next steps derived from the account's actual state — no
   // fabricated activity feed.
   const nextSteps: { label: string; href: string }[] = [];
-  if (profileCompleteness < 100) {
-    nextSteps.push({ label: `Complete your profile — ${profileCompleteness}% done`, href: "/profile-setup" });
-  }
-  if (isTalent) {
-    nextSteps.push({ label: "Continue your verification training", href: "/training" });
-    if (leadCount === 0) {
-      nextSteps.push({ label: "Submit your talent application", href: "/apply" });
-    }
+  if (isAdmin) {
+    nextSteps.push({ label: "Open the admin dashboard", href: "/admin" });
+  } else if (!roleChosen) {
+    nextSteps.push({ label: "Choose your account type to finish signing up", href: "/profile-setup" });
   } else {
-    nextSteps.push({ label: "Browse verified talent", href: "/talent" });
-    nextSteps.push({ label: "Post a role to hire talent", href: "/hire" });
+    if (profileCompleteness < 100) {
+      nextSteps.push({ label: `Complete your profile — ${profileCompleteness}% done`, href: "/profile-setup" });
+    }
+    if (isTalent) {
+      nextSteps.push({ label: "Continue your verification training", href: "/training" });
+      if (leadCount === 0) {
+        nextSteps.push({ label: "Submit your talent application", href: "/apply" });
+      }
+    } else {
+      nextSteps.push({ label: "Browse verified talent", href: "/talent" });
+      nextSteps.push({ label: "Post a role to hire talent", href: "/hire" });
+    }
   }
 
   const leadLabel = isTalent ? "Applications Submitted" : "Inquiries Submitted";
+  const accountType = isAdmin
+    ? "Admin"
+    : isTalent
+    ? "Talent"
+    : isEmployer
+    ? "Employer"
+    : "Not chosen yet";
 
   return (
     <div className="min-h-screen bg-gray-50 pt-32 pb-12">
@@ -119,38 +139,45 @@ export function DashboardView({
             </h1>
           </div>
           <div className="flex gap-3 animate-fade-up" style={{ animationDelay: "100ms" }}>
-            <Link href={isTalent ? "/profile-setup" : "/hire"}>
+            <Link href={isAdmin ? "/admin" : isEmployer ? "/hire" : "/profile-setup"}>
               <button className="flex items-center gap-2 px-5 py-2.5 bg-black text-white font-semibold rounded-xl hover:bg-black/90 transition-colors shadow-md">
-                {isTalent ? "Update Profile" : "Post a Job"}
+                {isAdmin ? "Admin Dashboard" : isEmployer ? "Post a Job" : isTalent ? "Update Profile" : "Finish Setup"}
               </button>
             </Link>
           </div>
         </div>
 
         {/* Stats Row — all real, account-derived */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm animate-fade-up" style={{ animationDelay: "150ms" }}>
-            <div className="flex justify-between items-start mb-4">
-              <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-                <TrendingUp className="w-6 h-6" />
+        <div className={`grid grid-cols-1 gap-6 mb-10 ${roleChosen ? "md:grid-cols-3" : "md:grid-cols-1"}`}>
+          {/* Profile completeness and lead counts are measured against a
+              talent/employer profile, so they only mean anything once a role
+              is chosen — an admin has neither profile and would read 0%. */}
+          {roleChosen && (
+            <>
+              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm animate-fade-up" style={{ animationDelay: "150ms" }}>
+                <div className="flex justify-between items-start mb-4">
+                  <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
+                    <TrendingUp className="w-6 h-6" />
+                  </div>
+                </div>
+                <p className="text-gray-500 font-medium text-sm">Profile Completeness</p>
+                <h3 className="text-2xl font-bold text-black mt-1">{profileCompleteness}%</h3>
+                <div className="mt-3 h-2 w-full rounded-full bg-gray-100 overflow-hidden">
+                  <div className="h-full bg-black rounded-full transition-all" style={{ width: `${profileCompleteness}%` }} />
+                </div>
               </div>
-            </div>
-            <p className="text-gray-500 font-medium text-sm">Profile Completeness</p>
-            <h3 className="text-2xl font-bold text-black mt-1">{profileCompleteness}%</h3>
-            <div className="mt-3 h-2 w-full rounded-full bg-gray-100 overflow-hidden">
-              <div className="h-full bg-black rounded-full transition-all" style={{ width: `${profileCompleteness}%` }} />
-            </div>
-          </div>
 
-          <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm animate-fade-up" style={{ animationDelay: "200ms" }}>
-            <div className="flex justify-between items-start mb-4">
-              <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
-                {isTalent ? <FileText className="w-6 h-6" /> : <Briefcase className="w-6 h-6" />}
+              <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm animate-fade-up" style={{ animationDelay: "200ms" }}>
+                <div className="flex justify-between items-start mb-4">
+                  <div className="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center">
+                    {isTalent ? <FileText className="w-6 h-6" /> : <Briefcase className="w-6 h-6" />}
+                  </div>
+                </div>
+                <p className="text-gray-500 font-medium text-sm">{leadLabel}</p>
+                <h3 className="text-2xl font-bold text-black mt-1">{leadCount}</h3>
               </div>
-            </div>
-            <p className="text-gray-500 font-medium text-sm">{leadLabel}</p>
-            <h3 className="text-2xl font-bold text-black mt-1">{leadCount}</h3>
-          </div>
+            </>
+          )}
 
           <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm animate-fade-up" style={{ animationDelay: "250ms" }}>
             <div className="flex justify-between items-start mb-4">
@@ -203,7 +230,7 @@ export function DashboardView({
               <dl className="space-y-4 text-sm">
                 <div>
                   <dt className="text-gray-400 font-medium">Account type</dt>
-                  <dd className="text-black font-semibold capitalize mt-0.5">{isTalent ? "Talent" : "Employer"}</dd>
+                  <dd className="text-black font-semibold mt-0.5">{accountType}</dd>
                 </div>
                 <div>
                   <dt className="text-gray-400 font-medium">Email</dt>
@@ -219,16 +246,23 @@ export function DashboardView({
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8 animate-fade-up" style={{ animationDelay: "400ms" }}>
               <h3 className="text-lg font-bold text-black mb-4">Quick Links</h3>
               <div className="space-y-2">
-                {(isTalent
+                {(isAdmin
+                  ? [
+                      { label: "Admin Dashboard", href: "/admin" },
+                      { label: "Browse Talent", href: "/talent" },
+                    ]
+                  : isTalent
                   ? [
                       { label: "My Profile", href: "/profile-setup" },
                       { label: "Training Hub", href: "/training" },
                     ]
-                  : [
+                  : isEmployer
+                  ? [
                       { label: "My Profile", href: "/profile-setup" },
                       { label: "Browse Talent", href: "/talent" },
                       { label: "Post a Job", href: "/hire" },
                     ]
+                  : [{ label: "Finish setting up your profile", href: "/profile-setup" }]
                 ).map((link) => (
                   <Link key={link.href} href={link.href} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors group">
                     <span className="font-medium text-gray-700 group-hover:text-black">{link.label}</span>
