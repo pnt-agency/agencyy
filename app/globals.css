@@ -127,6 +127,58 @@ body {
     animation: shimmer-bw 4s linear infinite;
   }
 
+  /* Molten-gold shimmer, for headline words on dark sections only — the pale
+     stops sit near #f0dfa8 and would vanish on white. Reuses the shimmer-bw
+     keyframes, which only travel background-position and carry no colour. */
+  .text-shimmer-gold {
+    background: linear-gradient(
+      90deg,
+      #8a6d1f 0%, #d4af37 25%, #f4e3ad 45%, #d4af37 65%, #8a6d1f 100%
+    );
+    background-size: 300% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer-bw 5s linear infinite;
+  }
+
+  /* Static gold gradient for headings. Safe on dark; on light use text-gold-deep. */
+  .text-gradient-gold {
+    background: linear-gradient(135deg, #f4e3ad 0%, #d4af37 45%, #8a6d1f 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Hairline that fades in and out of gold — replaces flat section separators
+     so the seam between sections reads as deliberate rather than a border. */
+  .gold-rule {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(212, 175, 55, 0.15) 20%,
+      rgba(212, 175, 55, 0.85) 50%,
+      rgba(212, 175, 55, 0.15) 80%,
+      transparent 100%
+    );
+  }
+
+  /* Decorative gold bloom for dark sections. Pair with absolute positioning. */
+  .gold-glow {
+    background: radial-gradient(
+      circle at center,
+      rgba(212, 175, 55, 0.16) 0%,
+      rgba(212, 175, 55, 0.06) 35%,
+      transparent 70%
+    );
+  }
+
+  /* Very soft gold wash so a "white" section isn't literally flat white. */
+  .bg-gold-wash {
+    background: linear-gradient(180deg, #ffffff 0%, #fdf9ef 55%, #ffffff 100%);
+  }
+
   /* Delays */
   .delay-100 { animation-delay: 100ms; }
   .delay-200 { animation-delay: 200ms; }
@@ -178,8 +230,17 @@ body {
   }
 }
 
+/* ── Text selection ── */
+::selection {
+  background: var(--color-gold);
+  color: #0a0a0a;
+}
+
 /* ── Custom scrollbar ── */
 ::-webkit-scrollbar       { width: 5px; }
 ::-webkit-scrollbar-track { background: #f0f0f0; }
-::-webkit-scrollbar-thumb { background: #0a0a0a; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #333; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #d4af37 0%, #8a6d1f 100%);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover { background: #d4af37; }

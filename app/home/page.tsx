@@ -179,14 +179,14 @@ export default function Home() {
             {/* LEFT */}
             <div>
               {/* Pill badge */}
-              <div className="animate-fade-up inline-flex items-center gap-2 border border-black/15 rounded-full px-4 py-2 mb-8 bg-black/3">
-                <span className="w-1.5 h-1.5 rounded-full bg-black animate-blink" />
-                <span className="text-black text-sm font-semibold">Verified Remote Talent Network</span>
+              <div className="animate-fade-up inline-flex items-center gap-2 border border-gold/40 rounded-full px-4 py-2 mb-8 bg-gold-soft">
+                <span className="w-1.5 h-1.5 rounded-full bg-gold-deep animate-blink" />
+                <span className="text-gold-deep text-sm font-semibold">Verified Remote Talent Network</span>
               </div>
 
               <h1 className="animate-fade-up delay-100 font-display text-6xl lg:text-[80px] font-black text-black leading-[1.0] tracking-tight mb-7">
                 Build your<br />
-                <span className="inline-block border-b-4 border-black pb-1">dream team</span><br />
+                <span className="inline-block border-b-4 border-gold pb-1">dream team</span><br />
                 <span className="text-black/30">with verified</span><br />
                 <span className="text-black/30">remote talent.</span>
               </h1>
@@ -252,18 +252,18 @@ export default function Home() {
         </div>
 
         {/* Section separator */}
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-black/8" />
+        <div className="absolute bottom-0 left-0 right-0 gold-rule" />
       </section>
 
       {/* ══════════════════════════════════════
           SCROLLING MARQUEE STRIP
       ══════════════════════════════════════ */}
-      <section className="py-5 bg-black overflow-hidden">
+      <section className="py-5 bg-gold overflow-hidden">
         <div className="flex gap-12 animate-marquee whitespace-nowrap">
           {Array.from({ length: 2 }).map((_, rep) =>
             ["Vetted Skills", "Verified Badge", "Global Talent", "5-Module Training", "Integrity First", "Excellence Always"].map((t) => (
-              <span key={`${rep}-${t}`} className="text-sm font-bold text-white/40 uppercase tracking-widest flex items-center gap-6">
-                {t} <span className="text-white/15">✦</span>
+              <span key={`${rep}-${t}`} className="text-sm font-bold text-black/70 uppercase tracking-widest flex items-center gap-6">
+                {t} <span className="text-black/35">✦</span>
               </span>
             ))
           )}
@@ -351,6 +351,7 @@ export default function Home() {
           HOW IT WORKS  –  black bg, white text
       ══════════════════════════════════════ */}
       <section className="py-28 bg-black relative overflow-hidden">
+        <div className="gold-glow absolute -top-40 -right-40 w-[700px] h-[700px] pointer-events-none" />
         <ParticleCanvas dark={true} />
 
         {/* Rings */}
@@ -424,7 +425,8 @@ export default function Home() {
       {/* ══════════════════════════════════════
           TESTIMONIALS  –  white bg
       ══════════════════════════════════════ */}
-      <section className="py-28 bg-white border-t border-black/8">
+      <section className="py-28 bg-gold-wash relative">
+        <div className="gold-rule absolute top-0 left-0 right-0" />
         <div className="max-w-7xl mx-auto px-6">
           <div className="max-w-xl mb-16">
             <div className="reveal inline-flex items-center gap-2 border border-gold/40 rounded-full px-4 py-1.5 mb-5 bg-gold-soft">
@@ -552,21 +554,23 @@ export default function Home() {
       ══════════════════════════════════════ */}
       <section className="py-32 bg-black relative overflow-hidden">
         <ParticleCanvas dark={true} />
+        {/* Gold bloom behind the rings — decorative, sits under content. */}
+        <div className="gold-glow absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] pointer-events-none" />
 
         {/* Animated rings */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] border border-white/4 rounded-full animate-spin-slow pointer-events-none" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] border border-white/5 rounded-full animate-spin-reverse pointer-events-none" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] border border-white/6 rounded-full animate-spin-slow pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] border border-gold/10 rounded-full animate-spin-slow pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] border border-gold/15 rounded-full animate-spin-reverse pointer-events-none" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] border border-gold/25 rounded-full animate-spin-slow pointer-events-none" />
 
         <div className="relative max-w-4xl mx-auto px-6 text-center">
-          <div className="reveal inline-flex items-center gap-2 border border-white/15 rounded-full px-4 py-1.5 mb-8 bg-white/5">
-            <span className="w-1.5 h-1.5 rounded-full bg-white animate-blink" />
-            <span className="text-white text-sm font-semibold">Accepting new clients now</span>
+          <div className="reveal inline-flex items-center gap-2 border border-gold/40 rounded-full px-4 py-1.5 mb-8 bg-gold/10">
+            <span className="w-1.5 h-1.5 rounded-full bg-gold animate-blink" />
+            <span className="text-gold text-sm font-semibold">Accepting new clients now</span>
           </div>
 
           <h2 className="reveal font-display text-5xl md:text-7xl font-black text-white leading-tight mb-6">
             Ready to hire your<br />
-            <span className="text-shimmer-bw">perfect match?</span>
+            <span className="text-shimmer-gold">perfect match?</span>
           </h2>
 
           <p className="reveal text-white/45 text-xl mb-12 max-w-lg mx-auto leading-relaxed">

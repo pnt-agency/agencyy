@@ -67,13 +67,14 @@ export function AuthForm({ oauthError = null }: { oauthError?: string | null }) 
       {/* Left side - visual */}
       <div className="hidden lg:flex flex-1 relative overflow-hidden bg-zinc-900 flex-col justify-between p-12">
         <div className="absolute inset-0 opacity-20 pointer-events-none bg-[radial-gradient(circle_at_50%_50%,#ffffff_1px,transparent_1px)] bg-[size:32px_32px]" />
+        <div className="gold-glow absolute -bottom-32 -left-32 w-[600px] h-[600px] pointer-events-none" />
 
         <div className="relative z-10">
           <div className="w-12 h-12 bg-gold rounded-xl flex items-center justify-center font-black text-black text-xl mb-6">
             AP
           </div>
           <h1 className="text-5xl font-display font-black leading-tight max-w-lg">
-            Build your dream remote team, effortlessly.
+            Build your <span className="text-gradient-gold">dream remote team</span>, effortlessly.
           </h1>
         </div>
 

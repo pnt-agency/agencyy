@@ -4,7 +4,7 @@ export function Footer() {
   return (
     <footer className="bg-black text-white">
       {/* Top border line */}
-      <div className="h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+      <div className="gold-rule" />
 
       <div className="max-w-7xl mx-auto px-6 py-16">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-12">
@@ -26,7 +26,7 @@ export function Footer() {
 
           {/* Platform links */}
           <div className="md:col-span-3">
-            <h3 className="text-white font-display font-bold mb-5 text-sm uppercase tracking-widest">Platform</h3>
+            <h3 className="text-gold font-display font-bold mb-5 text-sm uppercase tracking-widest">Platform</h3>
             <ul className="space-y-3">
               {[
                 { href: "/hire",     label: "Hire Talent" },
@@ -37,9 +37,9 @@ export function Footer() {
                 <li key={link.href}>
                   <Link
                     href={link.href}
-                    className="text-sm text-white/50 hover:text-white transition-colors duration-200 flex items-center gap-2 group"
+                    className="text-sm text-white/50 hover:text-gold transition-colors duration-200 flex items-center gap-2 group"
                   >
-                    <span className="w-1 h-1 rounded-full bg-white/20 group-hover:bg-white transition-colors" />
+                    <span className="w-1 h-1 rounded-full bg-gold/40 group-hover:bg-gold transition-colors" />
                     {link.label}
                   </Link>
                 </li>
@@ -49,7 +49,7 @@ export function Footer() {
 
           {/* Legal links */}
           <div className="md:col-span-2">
-            <h3 className="text-white font-display font-bold mb-5 text-sm uppercase tracking-widest">Legal</h3>
+            <h3 className="text-gold font-display font-bold mb-5 text-sm uppercase tracking-widest">Legal</h3>
             <ul className="space-y-3">
               {[
                 { href: "/privacy", label: "Privacy Policy" },
@@ -59,9 +59,9 @@ export function Footer() {
                 <li key={link.label}>
                   <Link
                     href={link.href}
-                    className="text-sm text-white/50 hover:text-white transition-colors duration-200 flex items-center gap-2 group"
+                    className="text-sm text-white/50 hover:text-gold transition-colors duration-200 flex items-center gap-2 group"
                   >
-                    <span className="w-1 h-1 rounded-full bg-white/20 group-hover:bg-white transition-colors" />
+                    <span className="w-1 h-1 rounded-full bg-gold/40 group-hover:bg-gold transition-colors" />
                     {link.label}
                   </Link>
                 </li>
@@ -71,11 +71,11 @@ export function Footer() {
 
           {/* CTA box */}
           <div className="md:col-span-2">
-            <div className="border border-white/10 rounded-2xl p-5 text-center bg-white/5">
-              <div className="text-2xl mb-3">✦</div>
+            <div className="border border-gold/30 rounded-2xl p-5 text-center bg-gold/5">
+              <div className="text-2xl mb-3 text-gold">✦</div>
               <p className="text-xs text-white/50 mb-4 leading-relaxed">Ready to find your perfect match?</p>
               <Link href="/hire">
-                <button className="w-full py-2.5 text-xs font-bold text-black bg-white rounded-xl hover:bg-white/90 transition-all">
+                <button className="w-full py-2.5 text-xs font-bold text-black bg-gold rounded-xl hover:bg-gold/90 transition-all">
                   Get Started →
                 </button>
               </Link>
@@ -84,7 +84,7 @@ export function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-12 pt-8 border-t border-white/10 flex flex-col md:flex-row justify-between items-center gap-3">
+        <div className="mt-12 pt-8 border-t border-gold/20 flex flex-col md:flex-row justify-between items-center gap-3">
           <p className="text-xs text-white/30">
             © {new Date().getFullYear()} Amaris Partners. All rights reserved.
           </p>
