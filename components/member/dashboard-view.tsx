@@ -272,7 +272,11 @@ export function DashboardView({
                       { label: "Post a Job", href: "/hire" },
                     ]
                   : [{ label: "Finish setting up your profile", href: "/profile-setup" }]
-                ).map((link) => (
+                )
+                  // Reachable from every state — including the unverified one,
+                  // where it's the only member page that isn't locked.
+                  .concat([{ label: "Account settings", href: "/account" }])
+                  .map((link) => (
                   <Link key={link.href} href={link.href} className="flex items-center justify-between p-3 rounded-xl hover:bg-gray-50 transition-colors group">
                     <span className="font-medium text-gray-700 group-hover:text-black">{link.label}</span>
                     <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-black transition-colors group-hover:translate-x-1" />

@@ -94,6 +94,12 @@ export const users = pgTable("users", {
   role: text("role").notNull().default("user"),
   // Set when the user confirms their email via a verification link.
   emailVerified: timestamp("email_verified", { withTimezone: true }),
+  // Soft delete. The row is kept so signup cohorts, lead attribution and every
+  // other historical count stay intact after someone leaves — but a non-null
+  // deletedAt means "this account no longer exists" everywhere in the app, so
+  // every read path that surfaces a user must filter on it. softDeleteUser()
+  // also scrubs the identifying columns above; see lib/db/queries.ts.
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

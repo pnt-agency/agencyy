@@ -8,6 +8,7 @@ import {
   saveProfileSchema,
   requestResetSchema,
   resetPasswordSchema,
+  deleteAccountSchema,
 } from "@/lib/validation";
 import {
   getUserByEmail,
@@ -22,6 +23,8 @@ import {
   findValidAuthToken,
   deleteAuthToken,
   claimLeadsForUser,
+  softDeleteUser,
+  countAdmins,
 } from "@/lib/db/queries";
 import {
   generateToken,
@@ -231,6 +234,55 @@ export async function resendVerificationEmail(): Promise<ActionResult> {
     console.error("Error resending verification email:", error);
     return { success: false, error: "Could not send the email. Please try again." };
   }
+}
+
+// ---------- Account deletion ----------
+
+/**
+ * Soft-deletes the signed-in member's own account. The row stays in the
+ * database (see softDeleteUser) so historical counts survive; what goes is the
+ * account's ability to sign in, its place in every listing, and the personal
+ * details we no longer have a reason to hold.
+ *
+ * The caller signs out afterwards. It doesn't strictly have to — every session
+ * helper resolves against the database and will now come back empty — but
+ * leaving a dead cookie in place would mean a confusing bounce to "/" on the
+ * next click instead of a clean landing.
+ */
+export async function deleteMyAccount(input: unknown): Promise<ActionResult> {
+  const account = await getCurrentAccount();
+  if (!account) {
+    return { success: false, error: "You must be signed in to delete your account." };
+  }
+
+  const parsed = deleteAccountSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Please confirm before deleting.",
+    };
+  }
+
+  // Same guard the admin role editor uses: nobody may remove the last admin,
+  // which would leave /admin permanently unreachable.
+  if (account.role === "admin" && (await countAdmins()) <= 1) {
+    return {
+      success: false,
+      error:
+        "You're the only admin. Promote another admin before deleting this account.",
+    };
+  }
+
+  try {
+    await softDeleteUser(account.id);
+  } catch (error) {
+    console.error("Error deleting account:", error);
+    return { success: false, error: "Could not delete your account. Please try again." };
+  }
+
+  revalidatePath("/talent");
+  revalidatePath("/dashboard");
+  return { success: true };
 }
 
 // ---------- Password reset ----------

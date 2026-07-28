@@ -114,6 +114,19 @@ export const resetPasswordSchema = z.object({
   password: passwordField,
 });
 
+// Deleting an account is irreversible from the member's side, so the form makes
+// them type the word out — a misclick can't produce this payload.
+export const DELETE_ACCOUNT_CONFIRMATION = "DELETE";
+
+export const deleteAccountSchema = z.object({
+  confirmation: z
+    .string()
+    .trim()
+    .refine((value) => value.toUpperCase() === DELETE_ACCOUNT_CONFIRMATION, {
+      message: `Type ${DELETE_ACCOUNT_CONFIRMATION} to confirm.`,
+    }),
+});
+
 export const expressInterestSchema = z.object({
   talentId: z.string().uuid(),
   message: z.string().trim().max(2000).optional().or(z.literal("")),

@@ -5,6 +5,7 @@ import {
   employerProfileSchema,
   requestResetSchema,
   resetPasswordSchema,
+  deleteAccountSchema,
   talentInputSchema,
   employerInputSchema,
 } from "./validation";
@@ -65,6 +66,19 @@ describe("password reset schemas", () => {
     expect(resetPasswordSchema.safeParse({ token: "t", password: "longenough" }).success).toBe(true);
     expect(resetPasswordSchema.safeParse({ token: "", password: "longenough" }).success).toBe(false);
     expect(resetPasswordSchema.safeParse({ token: "t", password: "short" }).success).toBe(false);
+  });
+});
+
+describe("deleteAccountSchema", () => {
+  it("requires the confirmation word, ignoring case and surrounding space", () => {
+    expect(deleteAccountSchema.safeParse({ confirmation: "DELETE" }).success).toBe(true);
+    expect(deleteAccountSchema.safeParse({ confirmation: " delete " }).success).toBe(true);
+  });
+
+  it("rejects anything else, so an empty or stray submit can't destroy an account", () => {
+    expect(deleteAccountSchema.safeParse({ confirmation: "" }).success).toBe(false);
+    expect(deleteAccountSchema.safeParse({ confirmation: "yes" }).success).toBe(false);
+    expect(deleteAccountSchema.safeParse({}).success).toBe(false);
   });
 });
 

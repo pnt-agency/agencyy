@@ -43,6 +43,13 @@
       "when": 1784192189321,
       "tag": "0005_clumsy_guardian",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1785273449361,
+      "tag": "0006_wealthy_mystique",
+      "breakpoints": true
     }
   ]
 }

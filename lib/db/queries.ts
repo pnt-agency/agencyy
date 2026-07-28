@@ -177,11 +177,16 @@ export async function updateEmployerRecord(
 
 // ---------- Users & member profiles ----------
 
+// Soft-deleted accounts are invisible to every read path below. Sharing one
+// condition keeps that consistent — a query that forgets it would resurrect a
+// deleted member into the directory, the admin list or a sign-in.
+const notDeleted = isNull(users.deletedAt);
+
 export async function getUserByEmail(email: string): Promise<UserRow | null> {
   const [user] = await db
     .select()
     .from(users)
-    .where(eq(users.email, email.trim().toLowerCase()));
+    .where(and(eq(users.email, email.trim().toLowerCase()), notDeleted));
   return user ?? null;
 }
 
@@ -255,8 +260,34 @@ export async function getEmployerRecordUserId(id: string): Promise<string | null
 }
 
 export async function getUserById(id: string): Promise<UserRow | null> {
-  const [user] = await db.select().from(users).where(eq(users.id, id));
+  const [user] = await db.select().from(users).where(and(eq(users.id, id), notDeleted));
   return user ?? null;
+}
+
+/**
+ * Soft-deletes an account: the row survives (so signup cohorts, lead
+ * attribution and interest history stay countable) while the account stops
+ * existing as far as the app is concerned.
+ *
+ * The identifying columns are scrubbed rather than kept. Holding someone's name
+ * and address after they've asked to be deleted isn't something analytics
+ * needs, and rewriting the email to a per-id tombstone frees the unique index
+ * so the same person can sign up again later.
+ */
+export async function softDeleteUser(userId: string): Promise<void> {
+  await db.transaction(async (tx) => {
+    // Any verification or reset link already in an inbox must stop working.
+    await tx.delete(authTokens).where(eq(authTokens.userId, userId));
+    await tx
+      .update(users)
+      .set({
+        deletedAt: new Date(),
+        email: `deleted-${userId}@deleted.invalid`,
+        name: "Deleted account",
+        passwordHash: null,
+      })
+      .where(eq(users.id, userId));
+  });
 }
 
 export async function setUserRole(userId: string, role: string): Promise<void> {
@@ -396,7 +427,7 @@ const directoryColumns = {
 export async function listVerifiedTalent(
   filters: { role?: string; skill?: string } = {}
 ): Promise<DirectoryTalent[]> {
-  const conds = [eq(talentProfiles.verified, true)];
+  const conds = [eq(talentProfiles.verified, true), notDeleted];
   if (filters.role) conds.push(eq(talentProfiles.role, filters.role));
   if (filters.skill) conds.push(ilike(talentProfiles.skills, `%${filters.skill}%`));
 
@@ -413,7 +444,7 @@ export async function getVerifiedTalentById(userId: string): Promise<DirectoryTa
     .select(directoryColumns)
     .from(talentProfiles)
     .innerJoin(users, eq(users.id, talentProfiles.userId))
-    .where(and(eq(talentProfiles.userId, userId), eq(talentProfiles.verified, true)));
+    .where(and(eq(talentProfiles.userId, userId), eq(talentProfiles.verified, true), notDeleted));
   return row ?? null;
 }
 
@@ -580,12 +611,16 @@ export async function listUserAccounts(): Promise<UserAccount[]> {
       createdAt: users.createdAt,
     })
     .from(users)
+    .where(notDeleted)
     .orderBy(desc(users.createdAt));
 }
 
 /** Used to refuse a change that would leave the platform with no admin. */
 export async function countAdmins(): Promise<number> {
-  const [row] = await db.select({ n: count() }).from(users).where(eq(users.role, "admin"));
+  const [row] = await db
+    .select({ n: count() })
+    .from(users)
+    .where(and(eq(users.role, "admin"), notDeleted));
   return row?.n ?? 0;
 }
 
@@ -614,7 +649,7 @@ export async function listTalentAccounts(): Promise<TalentAccount[]> {
     })
     .from(users)
     .leftJoin(talentProfiles, eq(talentProfiles.userId, users.id))
-    .where(eq(users.role, "talent"))
+    .where(and(eq(users.role, "talent"), notDeleted))
     .orderBy(desc(users.createdAt));
   // verified is null when the talent has no profile row yet — treat as false.
   return rows.map((r) => ({ ...r, verified: r.verified ?? false }));

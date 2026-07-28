@@ -105,6 +105,7 @@ export function Navbar() {
     // Member-only destinations — hidden until authenticated (they redirect anyway).
     ...(isLoggedIn ? [{ href: "/training", label: "Training" }] : []),
     ...(isLoggedIn ? [{ href: "/dashboard", label: "Dashboard" }] : []),
+    ...(isLoggedIn ? [{ href: "/account", label: "Account" }] : []),
   ];
 
   return (

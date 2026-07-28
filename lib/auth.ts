@@ -2,7 +2,7 @@ import { NextAuthOptions, type Session } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider, { type GoogleProfile } from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
-import { eq } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { getServerSession } from "next-auth/next";
 import { db } from "./db";
 import { users, type UserRow } from "./db/schema";
@@ -14,6 +14,11 @@ import { appBaseUrl } from "./tokens";
 if (process.env.NODE_ENV === "production" && !process.env.NEXTAUTH_SECRET) {
   throw new Error("NEXTAUTH_SECRET is not set.");
 }
+
+// A soft-deleted account keeps its row for analytics but must behave as if it
+// were gone: it can't sign in, can't be found, and doesn't hold its old email
+// (softDeleteUser rewrites it to a tombstone, freeing the address for reuse).
+const activeUser = isNull(users.deletedAt);
 
 const providers: NextAuthOptions["providers"] = [
   CredentialsProvider({
@@ -28,7 +33,10 @@ const providers: NextAuthOptions["providers"] = [
       }
 
       const email = credentials.email.trim().toLowerCase();
-      const [user] = await db.select().from(users).where(eq(users.email, email));
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(and(eq(users.email, email), activeUser));
 
       if (!user || !user.passwordHash) {
         return null;
@@ -86,7 +94,13 @@ export const authOptions: NextAuthOptions = {
         const googleVerified = (profile as GoogleProfile).email_verified;
         if (!googleVerified) return false;
 
-        const [existing] = await db.select().from(users).where(eq(users.email, email));
+        // Scoped to active users: a returning member whose account was deleted
+        // gets a brand-new one rather than being handed the tombstone. The old
+        // row no longer holds this address, so the insert below can't collide.
+        const [existing] = await db
+          .select()
+          .from(users)
+          .where(and(eq(users.email, email), activeUser));
         if (!existing) {
           const name = profile.name ?? email;
           await db.insert(users).values({
@@ -124,7 +138,7 @@ export const authOptions: NextAuthOptions = {
         const [dbUser] = await db
           .select()
           .from(users)
-          .where(eq(users.email, token.email));
+          .where(and(eq(users.email, token.email), activeUser));
         if (dbUser) {
           token.id = dbUser.id;
           token.role = dbUser.role;
@@ -143,30 +157,43 @@ export const authOptions: NextAuthOptions = {
 };
 
 /**
+ * Session plus the account row behind it, or null if there's no session or the
+ * account no longer exists. Every accessor below funnels through this so a
+ * cookie that outlived its account — an expired JWT is up to 30 days behind
+ * reality, and deleting an account can't reach into the browser — stops
+ * authenticating the moment the row goes.
+ */
+async function activeSession(): Promise<{ session: Session; account: UserRow } | null> {
+  const session = await getServerSession(authOptions);
+  const email = session?.user?.email;
+  if (!session || !email) return null;
+
+  const [account] = await db
+    .select()
+    .from(users)
+    .where(and(eq(users.email, email.trim().toLowerCase()), activeUser));
+  return account ? { session, account } : null;
+}
+
+/**
  * Returns the current session only if it belongs to an admin user, else null.
  * Authorization is resolved against the database (the source of truth) rather
  * than trusting a claim in the session token — a valid login is not the same
  * as being an admin.
  */
 export async function getAdminSession(): Promise<Session | null> {
-  const session = await getServerSession(authOptions);
-  const email = session?.user?.email;
-  if (!email) return null;
-
-  const [user] = await db.select().from(users).where(eq(users.email, email));
-  if (user?.role !== "admin") return null;
-
-  return session;
+  const current = await activeSession();
+  return current?.account.role === "admin" ? current.session : null;
 }
 
 /**
- * Returns the current authenticated session (any role), or null. Used to gate
- * member pages/actions. Callers that need role-specific behavior read
+ * Returns the current authenticated session user (any role), or null. Used to
+ * gate member pages/actions. Callers that need role-specific behavior read
  * session.user.role.
  */
 export async function getCurrentUser(): Promise<Session["user"] | null> {
-  const session = await getServerSession(authOptions);
-  return session?.user ?? null;
+  const current = await activeSession();
+  return current?.session.user ?? null;
 }
 
 /**
@@ -177,15 +204,8 @@ export async function getCurrentUser(): Promise<Session["user"] | null> {
  * trusting it would keep someone locked out after they clicked the link.
  */
 export async function getCurrentAccount(): Promise<UserRow | null> {
-  const session = await getServerSession(authOptions);
-  const email = session?.user?.email;
-  if (!email) return null;
-
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.email, email.trim().toLowerCase()));
-  return user ?? null;
+  const current = await activeSession();
+  return current?.account ?? null;
 }
 
 /**
