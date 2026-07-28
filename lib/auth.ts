@@ -1,6 +1,6 @@
 import { NextAuthOptions, type Session } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import GoogleProvider from "next-auth/providers/google";
+import GoogleProvider, { type GoogleProfile } from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { getServerSession } from "next-auth/next";
@@ -63,6 +63,9 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   pages: {
     signIn: "/",
+    // Send OAuth failures back to the sign-in page, which renders them from the
+    // `error` query param, instead of NextAuth's unbranded default error page.
+    error: "/",
   },
   callbacks: {
     // Auto-provision a member account on first Google sign-in. New Google users
@@ -72,13 +75,30 @@ export const authOptions: NextAuthOptions = {
       if (account?.provider === "google") {
         if (!profile?.email) return false;
         const email = profile.email.trim().toLowerCase();
+
+        // Google only sets email_verified after it has confirmed the address
+        // belongs to the account holder, so it stands in for our own
+        // verification link — a Google user never has to click one. Refuse
+        // sign-in when it's false: an unverified Google address proves nothing
+        // and would otherwise let someone claim an account by email alone.
+        const googleVerified = (profile as GoogleProfile).email_verified;
+        if (!googleVerified) return false;
+
         const [existing] = await db.select().from(users).where(eq(users.email, email));
         if (!existing) {
           await db.insert(users).values({
             name: profile.name ?? email,
             email,
             role: "user",
+            emailVerified: new Date(),
           });
+        } else if (!existing.emailVerified) {
+          // Pre-existing password account whose owner just proved the address
+          // through Google — clear the "please verify your email" state.
+          await db
+            .update(users)
+            .set({ emailVerified: new Date() })
+            .where(eq(users.id, existing.id));
         }
         return true;
       }
