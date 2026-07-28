@@ -48,7 +48,7 @@ export function RoleSelector({
         onChange={(e) => change(e.target.value)}
         disabled={isPending}
         aria-label="Account role"
-        className={`rounded-md border px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-black disabled:opacity-50 ${
+        className={`rounded-md border px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-gold disabled:opacity-50 ${
           error ? "border-red-400" : "border-gray-200"
         }`}
       >

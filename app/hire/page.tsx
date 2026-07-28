@@ -84,7 +84,7 @@ export default function HirePage() {
   if (isSuccess) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 text-center min-h-[60vh]">
-        <div className="w-16 h-16 bg-black/5 text-black rounded-full flex items-center justify-center mb-6">
+        <div className="w-16 h-16 bg-gold-soft text-gold-deep rounded-full flex items-center justify-center mb-6">
           <CheckCircle2 className="w-8 h-8" />
         </div>
         <h1 className="text-3xl font-bold text-black mb-4">Inquiry Received!</h1>

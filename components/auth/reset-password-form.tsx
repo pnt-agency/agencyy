@@ -51,7 +51,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
         <p className="text-gray-500 text-sm mb-8">You can now sign in with your new password.</p>
         <button
           onClick={() => { router.push("/"); router.refresh(); }}
-          className="w-full py-3.5 bg-black text-white font-bold rounded-xl hover:bg-black/90 transition-all"
+          className="w-full py-3.5 bg-gold text-black font-bold rounded-xl hover:bg-gold/90 transition-all"
         >
           Go to sign in
         </button>
@@ -100,7 +100,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
         <button
           type="submit"
           disabled={isPending}
-          className="w-full py-3.5 bg-black text-white font-bold rounded-xl hover:bg-black/90 transition-all disabled:opacity-50 disabled:cursor-wait"
+          className="w-full py-3.5 bg-gold text-black font-bold rounded-xl hover:bg-gold/90 transition-all disabled:opacity-50 disabled:cursor-wait"
         >
           {isPending ? "Updating..." : "Update password"}
         </button>

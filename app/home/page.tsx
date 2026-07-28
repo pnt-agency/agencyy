@@ -197,13 +197,13 @@ export default function Home() {
 
               <div className="animate-fade-up delay-300 flex flex-col sm:flex-row gap-3">
                 <Link href="/hire">
-                  <button className="group flex items-center justify-center gap-2 px-8 py-4 bg-black text-white font-bold rounded-2xl hover:bg-black/85 hover:scale-105 transition-all duration-300 shadow-xl shadow-black/20 text-base">
+                  <button className="group flex items-center justify-center gap-2 px-8 py-4 bg-gold text-black font-bold rounded-2xl hover:bg-gold/90 hover:scale-105 transition-all duration-300 shadow-xl shadow-gold/25 text-base">
                     Hire Talent Now
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </button>
                 </Link>
                 <Link href="/apply">
-                  <button className="flex items-center justify-center gap-2 px-8 py-4 border-2 border-black/15 text-black font-semibold rounded-2xl hover:border-black hover:bg-black/4 transition-all duration-300 text-base">
+                  <button className="flex items-center justify-center gap-2 px-8 py-4 border-2 border-gold/40 text-black font-semibold rounded-2xl hover:border-gold hover:bg-gold/10 transition-all duration-300 text-base">
                     Apply as Talent
                   </button>
                 </Link>
@@ -276,8 +276,8 @@ export default function Home() {
       <section className="py-28 bg-white">
         <div className="max-w-7xl mx-auto px-6">
           <div className="max-w-xl mb-16">
-            <div className="reveal inline-flex items-center gap-2 border border-black/15 rounded-full px-4 py-1.5 mb-5 bg-black/3">
-              <span className="text-black text-xs font-bold uppercase tracking-widest">Why Amaris Partners</span>
+            <div className="reveal inline-flex items-center gap-2 border border-gold/40 rounded-full px-4 py-1.5 mb-5 bg-gold-soft">
+              <span className="text-gold-deep text-xs font-bold uppercase tracking-widest">Why Amaris Partners</span>
             </div>
             <h2 className="reveal font-display text-5xl font-black text-black leading-tight mb-4">
               The standard for<br />remote talent.
@@ -362,8 +362,8 @@ export default function Home() {
 
             {/* Left: heading + tab */}
             <div>
-              <div className="reveal inline-flex items-center gap-2 border border-white/15 rounded-full px-4 py-1.5 mb-6 bg-white/5">
-                <span className="text-white text-xs font-bold uppercase tracking-widest">The Process</span>
+              <div className="reveal inline-flex items-center gap-2 border border-gold/40 rounded-full px-4 py-1.5 mb-6 bg-gold/10">
+                <span className="text-gold text-xs font-bold uppercase tracking-widest">The Process</span>
               </div>
               <h2 className="reveal font-display text-5xl font-black text-white leading-tight mb-6">
                 How it<br />works.
@@ -393,7 +393,7 @@ export default function Home() {
               {/* CTA */}
               <div className="reveal">
                 <Link href={tab === "employers" ? "/hire" : "/apply"}>
-                  <button className="group flex items-center gap-2 px-7 py-3.5 bg-white text-black font-bold rounded-2xl hover:bg-white/90 hover:scale-105 transition-all duration-300 shadow-xl shadow-white/10">
+                  <button className="group flex items-center gap-2 px-7 py-3.5 bg-gold text-black font-bold rounded-2xl hover:bg-gold/90 hover:scale-105 transition-all duration-300 shadow-xl shadow-gold/20">
                     {tab === "employers" ? "Start Hiring" : "Apply Now"}
                     <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </button>
@@ -427,9 +427,9 @@ export default function Home() {
       <section className="py-28 bg-white border-t border-black/8">
         <div className="max-w-7xl mx-auto px-6">
           <div className="max-w-xl mb-16">
-            <div className="reveal inline-flex items-center gap-2 border border-black/15 rounded-full px-4 py-1.5 mb-5 bg-black/3">
-              <Star className="w-3 h-3 fill-black text-black" />
-              <span className="text-black text-xs font-bold uppercase tracking-widest">Success Stories</span>
+            <div className="reveal inline-flex items-center gap-2 border border-gold/40 rounded-full px-4 py-1.5 mb-5 bg-gold-soft">
+              <Star className="w-3 h-3 fill-gold-deep text-gold-deep" />
+              <span className="text-gold-deep text-xs font-bold uppercase tracking-widest">Success Stories</span>
             </div>
             <h2 className="reveal font-display text-5xl font-black text-black leading-tight">
               Don&apos;t just take<br />our word for it.
@@ -541,7 +541,7 @@ export default function Home() {
                 <label className="block text-sm font-semibold text-black mb-1.5">Your Experience</label>
                 <textarea required value={newReview.quote} onChange={e => setNewReview({...newReview, quote: e.target.value})} rows={4} className="w-full px-4 py-3 rounded-xl border border-black/15 focus:outline-none focus:ring-2 focus:ring-black resize-none bg-white" placeholder={newReview.type === "employer" ? "How was your match?" : "How was the placement process?"}></textarea>
               </div>
-              <button type="submit" className="w-full py-4 bg-black text-white font-bold rounded-xl hover:bg-black/85 transition-all shadow-lg shadow-black/15">Submit Review</button>
+              <button type="submit" className="w-full py-4 bg-gold text-black font-bold rounded-xl hover:bg-gold/90 transition-all shadow-lg shadow-gold/20">Submit Review</button>
             </form>
           </div>
         </div>
@@ -575,13 +575,13 @@ export default function Home() {
 
           <div className="reveal flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/hire">
-              <button className="group flex items-center justify-center gap-2 px-10 py-5 bg-white text-black font-black rounded-2xl text-lg hover:bg-white/90 hover:scale-105 transition-all duration-300 shadow-2xl shadow-white/10">
+              <button className="group flex items-center justify-center gap-2 px-10 py-5 bg-gold text-black font-black rounded-2xl text-lg hover:bg-gold/90 hover:scale-105 transition-all duration-300 shadow-2xl shadow-gold/20">
                 Start Hiring Today
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
             </Link>
             <Link href="/apply">
-              <button className="flex items-center justify-center gap-2 px-10 py-5 border-2 border-white/20 text-white font-bold rounded-2xl text-lg hover:border-white/50 hover:bg-white/5 transition-all duration-300">
+              <button className="flex items-center justify-center gap-2 px-10 py-5 border-2 border-gold/40 text-white font-bold rounded-2xl text-lg hover:border-gold hover:bg-gold/10 transition-all duration-300">
                 Join as Talent
               </button>
             </Link>

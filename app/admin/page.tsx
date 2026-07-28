@@ -74,9 +74,9 @@ function SearchForm({
         name={name}
         defaultValue={value}
         placeholder={placeholder}
-        className="w-56 rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+        className="w-56 rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold"
       />
-      <button type="submit" className="rounded-md bg-black px-3 py-1.5 text-sm font-semibold text-white hover:bg-black/85">
+      <button type="submit" className="rounded-md bg-gold px-3 py-1.5 text-sm font-semibold text-black hover:bg-gold/85">
         Search
       </button>
       {value && (

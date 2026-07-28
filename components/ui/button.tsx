@@ -9,13 +9,16 @@ export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "primary", size = "md", ...props }, ref) => {
     const baseStyles =
-      "inline-flex items-center justify-center rounded-xl font-semibold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black disabled:pointer-events-none disabled:opacity-40 cursor-pointer";
+      "inline-flex items-center justify-center rounded-xl font-semibold transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-40 cursor-pointer";
 
+    // Primary carries the brand accent — black on gold is 9.42:1. Secondary
+    // stays black so a page with two actions still has a clear hierarchy;
+    // making both gold would leave neither looking primary.
     const variants = {
-      primary:   "bg-black text-white hover:bg-black/85 hover:scale-105 shadow-lg shadow-black/15",
+      primary:   "bg-gold text-black hover:bg-gold/90 hover:scale-105 shadow-lg shadow-gold/25",
       secondary: "bg-black text-white hover:bg-black/85 hover:scale-105 shadow-lg shadow-black/15",
-      outline:   "border-2 border-black text-black bg-transparent hover:bg-black hover:text-white",
-      ghost:     "text-black hover:bg-black/6 border border-transparent hover:border-black/10",
+      outline:   "border-2 border-gold text-black bg-transparent hover:bg-gold hover:text-black",
+      ghost:     "text-black hover:bg-gold/10 border border-transparent hover:border-gold/30",
     };
 
     const sizes = {

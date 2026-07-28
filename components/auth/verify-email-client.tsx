@@ -43,7 +43,7 @@ export function VerifyEmailClient({ token }: { token: string }) {
           </div>
           <h1 className="text-2xl font-display font-black text-black mb-2">Email verified</h1>
           <p className="text-gray-500 text-sm mb-8">Your email address is confirmed. Welcome aboard!</p>
-          <Link href="/dashboard" className="inline-block w-full py-3.5 bg-black text-white font-bold rounded-xl hover:bg-black/90 transition-all">
+          <Link href="/dashboard" className="inline-block w-full py-3.5 bg-gold text-black font-bold rounded-xl hover:bg-gold/90 transition-all">
             Go to dashboard
           </Link>
         </>

@@ -42,7 +42,7 @@ export function EmployerStatusUpdater({
         type="button"
         onClick={() => setOpen((v) => !v)}
         disabled={isPending}
-        className="text-gold font-medium hover:underline disabled:opacity-50 disabled:cursor-wait"
+        className="text-gold-deep font-medium hover:underline disabled:opacity-50 disabled:cursor-wait"
       >
         {isPending ? "Updating..." : "Update"}
       </button>

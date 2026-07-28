@@ -148,7 +148,7 @@ export function TrainingView() {
               <div className="p-6 md:p-8 flex flex-col md:flex-row gap-8 items-start">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-3">
-                    <span className="text-sm font-bold text-gold">Module {mod.id}</span>
+                    <span className="text-sm font-bold text-gold-deep">Module {mod.id}</span>
                     {mod.status === "Completed" && <Badge variant="success">Completed</Badge>}
                     {mod.status === "Available" && <Badge variant="ink">Available</Badge>}
                     {mod.status === "Locked" && <Badge variant="default">Locked</Badge>}

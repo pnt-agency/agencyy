@@ -91,7 +91,9 @@ export function Navbar() {
 
   const isDarkBg = pathname === "/";
   const textColorClass = isDarkBg && !scrolled ? "text-white" : "text-black";
-  const logoBgClass = isDarkBg && !scrolled ? "bg-white text-black" : "bg-black text-white";
+  // The mark stays gold on every background — black initials on #d4af37 is
+  // 9.42:1, so it reads on both the transparent dark header and the white one.
+  const logoBgClass = "bg-gold text-black";
 
   const homeHref = isLoggedIn ? "/home" : "/";
 

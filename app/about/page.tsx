@@ -48,7 +48,7 @@ export default function AboutPage() {
                 { step: "5", title: "Verified & Placed", text: "Only those who pass all stages receive the Verified Badge and enter our active placement pool." }
               ].map((item) => (
                 <div key={item.step} className="flex items-start gap-4">
-                  <div className="w-8 h-8 rounded-full bg-ink text-white font-bold flex items-center justify-center shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-gold text-black font-bold flex items-center justify-center shrink-0">
                     {item.step}
                   </div>
                   <div>
@@ -67,7 +67,7 @@ export default function AboutPage() {
               {values.map((val) => (
                 <div key={val.title} className="p-6 border border-gray-100 rounded-xl shadow-sm">
                   <div className="flex items-center gap-3 mb-3">
-                    <CheckCircle2 className="w-6 h-6 text-gold" />
+                    <CheckCircle2 className="w-6 h-6 text-gold-deep" />
                     <h3 className="text-xl font-bold text-ink">{val.title}</h3>
                   </div>
                   <p className="text-gray-600">{val.desc}</p>

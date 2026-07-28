@@ -45,9 +45,9 @@ export default async function AdminUsersPage({
             name="q"
             defaultValue={q}
             placeholder="Search name, email, role…"
-            className="w-full sm:w-72 rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-black"
+            className="w-full sm:w-72 rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-gold"
           />
-          <button type="submit" className="rounded-md bg-black px-3 py-1.5 text-sm font-semibold text-white hover:bg-black/85">Search</button>
+          <button type="submit" className="rounded-md bg-gold px-3 py-1.5 text-sm font-semibold text-black hover:bg-gold/85">Search</button>
           {q && <Link href="/admin/users" className="text-sm text-gray-500 hover:text-black">Clear</Link>}
         </form>
 

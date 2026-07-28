@@ -164,7 +164,7 @@ export function ProfileSetupForm({ initial }: { initial: ProfileInitial }) {
           <button
             type="submit"
             disabled={isPending}
-            className="w-full py-4 bg-black text-white font-bold rounded-xl hover:bg-black/90 disabled:opacity-50 disabled:cursor-wait transition-all shadow-lg"
+            className="w-full py-4 bg-gold text-black font-bold rounded-xl hover:bg-gold/90 disabled:opacity-50 disabled:cursor-wait transition-all shadow-lg"
           >
             {isPending ? "Saving..." : "Save Profile"}
           </button>

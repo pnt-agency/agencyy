@@ -12,7 +12,7 @@ export function Footer() {
           {/* Brand column */}
           <div className="md:col-span-5">
             <Link href="/" className="inline-flex items-center gap-2 mb-5 group">
-              <div className="w-9 h-9 bg-white rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+              <div className="w-9 h-9 bg-gold rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
                 <span className="text-black font-black text-xs">AP</span>
               </div>
               <span className="text-xl font-display font-bold text-white tracking-tight">

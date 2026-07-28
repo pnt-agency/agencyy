@@ -140,7 +140,7 @@ export function DashboardView({
           </div>
           <div className="flex gap-3 animate-fade-up" style={{ animationDelay: "100ms" }}>
             <Link href={isAdmin ? "/admin" : isEmployer ? "/hire" : "/profile-setup"}>
-              <button className="flex items-center gap-2 px-5 py-2.5 bg-black text-white font-semibold rounded-xl hover:bg-black/90 transition-colors shadow-md">
+              <button className="flex items-center gap-2 px-5 py-2.5 bg-gold text-black font-semibold rounded-xl hover:bg-gold/90 transition-colors shadow-md">
                 {isAdmin ? "Admin Dashboard" : isEmployer ? "Post a Job" : isTalent ? "Update Profile" : "Finish Setup"}
               </button>
             </Link>
