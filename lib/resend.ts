@@ -53,6 +53,43 @@ export async function sendVerificationEmail(email: string, name: string, url: st
   return data;
 }
 
+/**
+ * Sent once, when an account's email address becomes trusted — right after a
+ * Google signup (Google has already confirmed the address) or when a password
+ * signup clicks its verification link. Deliberately not sent at registration:
+ * an unverified address may not belong to the person who typed it.
+ */
+export async function sendWelcomeEmail(email: string, name: string, dashboardUrl: string) {
+  if (!resend) {
+    console.warn("Resend API key not configured.");
+    return null;
+  }
+
+  const { data, error } = await resend.emails.send({
+    from: EMAIL_FROM,
+    to: email,
+    subject: "Welcome to Agency Build",
+    html: `
+      <div>
+        <h2>Welcome, ${esc(name)}!</h2>
+        <p>Your Agency Build account is ready and your email address is confirmed.</p>
+        <p>The next step is to complete your profile — it's what our team reviews, and for talent it's what employers see in the directory.</p>
+        <p><a href="${dashboardUrl}">Go to my dashboard</a></p>
+        <p>If you have any questions, just reply to this email.</p>
+        <br />
+        <p>Best regards,</p>
+        <p>The Agency Build Team</p>
+      </div>
+    `,
+  });
+
+  if (error) {
+    console.error("Resend Error:", error);
+    throw new Error(`Resend failed: ${error.message}`);
+  }
+  return data;
+}
+
 export async function sendPasswordResetEmail(email: string, url: string) {
   if (!resend) {
     console.warn("Resend API key not configured.");

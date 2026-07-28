@@ -31,7 +31,7 @@ import {
   VERIFY_EMAIL,
   RESET_PASSWORD,
 } from "@/lib/tokens";
-import { sendVerificationEmail, sendPasswordResetEmail } from "@/lib/resend";
+import { sendVerificationEmail, sendPasswordResetEmail, sendWelcomeEmail } from "@/lib/resend";
 
 type ActionResult =
   | { success: true }
@@ -172,13 +172,24 @@ export async function verifyEmail(rawToken: string): Promise<ActionResult> {
   await markEmailVerified(token.userId);
   await deleteAuthToken(token.id);
 
-  // Claim again on verify: this catches Google signups (which never hit
-  // registerMember) and anyone who applied between signing up and verifying.
+  // The token is single-use and already deleted, so everything below runs at
+  // most once per account — no duplicate welcome mail on a replayed link.
+  const user = await getUserById(token.userId);
+
+  // Claim again on verify: this catches anyone who applied between signing up
+  // and verifying.
   try {
-    const user = await getUserById(token.userId);
     if (user) await claimLeadsForUser(user.id, user.email);
   } catch (error) {
     console.warn("Could not claim existing leads on verify:", error);
+  }
+
+  // Now that the address is proven, welcome them. Non-critical — verification
+  // has already succeeded and must still report success if this fails.
+  try {
+    if (user) await sendWelcomeEmail(user.email, user.name, `${appBaseUrl()}/dashboard`);
+  } catch (error) {
+    console.warn("Welcome email could not be sent:", error);
   }
 
   revalidatePath("/dashboard");

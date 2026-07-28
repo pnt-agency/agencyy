@@ -6,6 +6,8 @@ import { eq } from "drizzle-orm";
 import { getServerSession } from "next-auth/next";
 import { db } from "./db";
 import { users } from "./db/schema";
+import { sendWelcomeEmail } from "./resend";
+import { appBaseUrl } from "./tokens";
 
 // Fail loudly in production if the session-signing secret is missing, rather
 // than silently falling back to an auto-generated (and unstable) one.
@@ -86,12 +88,19 @@ export const authOptions: NextAuthOptions = {
 
         const [existing] = await db.select().from(users).where(eq(users.email, email));
         if (!existing) {
+          const name = profile.name ?? email;
           await db.insert(users).values({
-            name: profile.name ?? email,
+            name,
             email,
             role: "user",
             emailVerified: new Date(),
           });
+          // Best-effort: a failed welcome email must never block sign-in.
+          try {
+            await sendWelcomeEmail(email, name, `${appBaseUrl()}/dashboard`);
+          } catch (error) {
+            console.warn("Welcome email could not be sent:", error);
+          }
         } else if (!existing.emailVerified) {
           // Pre-existing password account whose owner just proved the address
           // through Google — clear the "please verify your email" state.
