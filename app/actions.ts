@@ -1,10 +1,11 @@
 "use server";
 
-import { createTalentRecord, createEmployerRecord, updateTalentRecord, updateEmployerRecord, updateTalentMeta, updateEmployerMeta, hasRecentTalentSubmission, hasRecentEmployerSubmission, getVerifiedTalentById, hasPendingInterest, createInterest, setTalentVerified, updateInterestStatus, createNotification, getInterestParties, getTalentRecordUserId, getEmployerRecordUserId } from "@/lib/db/queries";
+import { createTalentRecord, createEmployerRecord, updateTalentRecord, updateEmployerRecord, updateTalentMeta, updateEmployerMeta, hasRecentTalentSubmission, hasRecentEmployerSubmission, getVerifiedTalentById, hasPendingInterest, createInterest, setTalentVerified, updateInterestStatus, createNotification, getInterestParties, getTalentRecordUserId, getEmployerRecordUserId, getUserById, setUserRole, countAdmins } from "@/lib/db/queries";
 import { sendTalentConfirmationEmail, sendEmployerConfirmationEmail, sendAdminTalentNotification, sendAdminEmployerNotification, sendAdminInterestNotification } from "@/lib/resend";
 import { Talent, Employer } from "@/types";
 import { getAdminSession, getCurrentUser } from "@/lib/auth";
 import { talentInputSchema, employerInputSchema, expressInterestSchema } from "@/lib/validation";
+import { isAssignableAccountRole } from "@/lib/roles";
 import { revalidatePath } from "next/cache";
 
 export async function submitTalentApplication(data: Omit<Talent, "id" | "status" | "createdAt">) {
@@ -141,6 +142,63 @@ export async function setTalentVerifiedAction(userId: string, verified: boolean)
   } catch (error) {
     console.error("Error setting talent verified:", error);
     return { success: false, error: "Failed to update." };
+  }
+}
+
+/**
+ * Promote or demote another account. Admin-only, and deliberately refuses two
+ * changes that have no recovery path through the UI: changing your own role,
+ * and demoting the last remaining admin. Either would leave the platform with
+ * nobody able to reach /admin, fixable only with direct database access.
+ */
+export async function setUserRoleAction(userId: string, role: string) {
+  const session = await getAdminSession();
+  if (!session) {
+    return { success: false, error: "Not authenticated." };
+  }
+
+  // Whitelist rather than trusting the submitted string — this is a privilege
+  // boundary, and "user" is transient state the signup flow owns, not a role
+  // an admin hands out.
+  if (!isAssignableAccountRole(role)) {
+    return { success: false, error: "Unsupported role." };
+  }
+
+  const target = await getUserById(userId);
+  if (!target) {
+    return { success: false, error: "Account not found." };
+  }
+
+  // Compare on email: getAdminSession() resolves the caller by email, so this
+  // holds even if the session's id claim is missing.
+  if (target.email === session.user?.email || target.id === session.user?.id) {
+    return { success: false, error: "You cannot change your own role." };
+  }
+
+  if (target.role === role) {
+    return { success: true };
+  }
+
+  if (target.role === "admin" && (await countAdmins()) <= 1) {
+    return { success: false, error: "This is the last admin account." };
+  }
+
+  try {
+    await setUserRole(userId, role);
+    await notify(
+      userId,
+      role === "admin"
+        ? "You now have admin access."
+        : `An admin changed your account type to "${role}".`,
+      role === "admin" ? "/admin" : "/dashboard"
+    );
+    revalidatePath("/admin/users");
+    revalidatePath("/admin/directory");
+    revalidatePath("/dashboard");
+    return { success: true };
+  } catch (error) {
+    console.error("Error setting user role:", error);
+    return { success: false, error: "Failed to update role." };
   }
 }
 

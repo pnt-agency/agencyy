@@ -34,7 +34,8 @@ export default async function AdminDirectoryPage({
           </div>
           <div className="flex gap-4">
             <Link href="/admin" className={navLink}>← Pipeline</Link>
-            <Link href="/admin/interests" className={navLink}>Interests →</Link>
+            <Link href="/admin/interests" className={navLink}>Interests</Link>
+            <Link href="/admin/users" className={navLink}>Users →</Link>
           </div>
         </div>
 

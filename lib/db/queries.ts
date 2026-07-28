@@ -558,6 +558,37 @@ export async function deleteNotification(id: string, userId: string): Promise<vo
     .where(and(eq(notifications.id, id), eq(notifications.userId, userId)));
 }
 
+// ---------- Admin: user accounts & roles ----------
+
+export type UserAccount = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  emailVerified: Date | null;
+  createdAt: Date;
+};
+
+export async function listUserAccounts(): Promise<UserAccount[]> {
+  return db
+    .select({
+      id: users.id,
+      name: users.name,
+      email: users.email,
+      role: users.role,
+      emailVerified: users.emailVerified,
+      createdAt: users.createdAt,
+    })
+    .from(users)
+    .orderBy(desc(users.createdAt));
+}
+
+/** Used to refuse a change that would leave the platform with no admin. */
+export async function countAdmins(): Promise<number> {
+  const [row] = await db.select({ n: count() }).from(users).where(eq(users.role, "admin"));
+  return row?.n ?? 0;
+}
+
 // ---------- Admin: talent account verification ----------
 
 export type TalentAccount = {
