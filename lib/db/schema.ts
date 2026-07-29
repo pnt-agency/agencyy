@@ -8,6 +8,7 @@ import {
   pgEnum,
   jsonb,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 // ---------- Enums ----------
@@ -53,7 +54,17 @@ export const talents = pgTable("talents", {
   portfolio: text("portfolio"),
   bio: text("bio").notNull(),
   whyJoin: text("why_join").notNull(),
+  // A link to a CV hosted elsewhere (Drive, LinkedIn). Kept alongside the
+  // uploaded file below — an applicant may provide either.
   cvLink: text("cv_link"),
+  // An uploaded CV in the private R2 bucket. The key is stored, never a URL:
+  // URLs to private objects are presigned and expire, so persisting one would
+  // save a dead string. Filename and size are kept for display; content type
+  // to set the right disposition on download.
+  cvKey: text("cv_key"),
+  cvFilename: text("cv_filename"),
+  cvSize: integer("cv_size"),
+  cvContentType: text("cv_content_type"),
   status: talentStatusEnum("status").notNull().default("Applicant"),
   followUpDate: timestamp("follow_up_date", { withTimezone: true }),
   notes: text("notes"),
@@ -206,6 +217,74 @@ export const notifications = pgTable(
   (table) => [index("notifications_user_created_idx").on(table.userId, table.createdAt)]
 );
 
+// ---------- Training ----------
+
+// The training curriculum, moved out of the client component that used to
+// hardcode it. Admins need to upload a video per module, and you can't attach a
+// file to an array literal in a bundle.
+export const trainingModules = pgTable("training_modules", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  // Order in the curriculum, and what "complete the previous module" means.
+  // Unique so two modules can't claim the same slot.
+  position: integer("position").notNull().unique(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  // Object key in the public R2 bucket. Null until a video is uploaded — the
+  // module then shows as coming soon rather than a broken player, which is
+  // exactly the failure the hardcoded /videos/*.mp4 paths used to produce.
+  videoKey: text("video_key"),
+  // Read off the file's metadata on upload so the module list can show a
+  // runtime without every client loading every video to measure it.
+  videoDurationSeconds: integer("video_duration_seconds"),
+  // Hidden from members until switched on, so a half-built module can exist.
+  published: boolean("published").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const trainingQuestions = pgTable(
+  "training_questions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    moduleId: uuid("module_id")
+      .notNull()
+      .references(() => trainingModules.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    prompt: text("prompt").notNull(),
+    // Answer choices in display order.
+    options: jsonb("options").$type<string[]>().notNull(),
+    // Index of the correct option. Nullable and currently unused: the existing
+    // quiz never graded anything, it only required an answer to each question.
+    // Stored so grading can be switched on later without a data migration.
+    correctIndex: integer("correct_index"),
+  },
+  (table) => [index("training_questions_module_idx").on(table.moduleId, table.position)]
+);
+
+// One row per member per module they've engaged with. Replaces localStorage,
+// which was per-browser, lost on a device change, and editable from devtools.
+export const trainingProgress = pgTable(
+  "training_progress",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    moduleId: uuid("module_id")
+      .notNull()
+      .references(() => trainingModules.id, { onDelete: "cascade" }),
+    // Set when the video reaches its end; gates the quiz.
+    watchedAt: timestamp("watched_at", { withTimezone: true }),
+    // Set when the quiz is submitted; unlocks the next module.
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    // Unique, not merely indexed: progress is written with an upsert that
+    // targets this pair, which needs a real constraint to conflict against.
+    uniqueIndex("training_progress_user_module_idx").on(table.userId, table.moduleId),
+  ]
+);
+
 // Append-only record of what admins did. Written by every admin mutation (see
 // lib/audit.ts) so "who changed this account, and when" has an answer.
 //
@@ -265,3 +344,8 @@ export type NotificationRow = typeof notifications.$inferSelect;
 export type NewNotificationRow = typeof notifications.$inferInsert;
 export type AuditLogRow = typeof auditLogs.$inferSelect;
 export type NewAuditLogRow = typeof auditLogs.$inferInsert;
+export type TrainingModuleRow = typeof trainingModules.$inferSelect;
+export type NewTrainingModuleRow = typeof trainingModules.$inferInsert;
+export type TrainingQuestionRow = typeof trainingQuestions.$inferSelect;
+export type NewTrainingQuestionRow = typeof trainingQuestions.$inferInsert;
+export type TrainingProgressRow = typeof trainingProgress.$inferSelect;

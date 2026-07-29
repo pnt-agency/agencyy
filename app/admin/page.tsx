@@ -8,6 +8,7 @@ import { TalentStatusUpdater } from "@/components/admin/talent-status-updater";
 import { EmployerStatusUpdater } from "@/components/admin/employer-status-updater";
 import { ExportDataButton } from "@/components/admin/export-data-button";
 import { EditableFollowUp, EditableNotes } from "@/components/admin/editable-cells";
+import { CvDownloadButton } from "@/components/admin/cv-download-button";
 
 const PAGE_SIZE = 15;
 
@@ -134,6 +135,7 @@ export default async function AdminDashboard({
             <Link href="/admin/directory" className="text-sm font-semibold text-gray-600 hover:text-black">Talent Directory</Link>
             <Link href="/admin/interests" className="text-sm font-semibold text-gray-600 hover:text-black">Interests</Link>
             <Link href="/admin/users" className="text-sm font-semibold text-gray-600 hover:text-black">Users</Link>
+            <Link href="/admin/training" className="text-sm font-semibold text-gray-600 hover:text-black">Training</Link>
             <Link href="/admin/audit" className="text-sm font-semibold text-gray-600 hover:text-black">Audit Log</Link>
             {/* Export always covers ALL records, not the filtered/paged view. */}
             <ExportDataButton />
@@ -159,6 +161,7 @@ export default async function AdminDashboard({
                   <th className="px-6 py-3">Name</th>
                   <th className="px-6 py-3">Role</th>
                   <th className="px-6 py-3">Country</th>
+                  <th className="px-6 py-3">CV</th>
                   <th className="px-6 py-3">Status</th>
                   <th className="px-6 py-3">Follow-up</th>
                   <th className="px-6 py-3">Notes</th>
@@ -168,7 +171,7 @@ export default async function AdminDashboard({
               <tbody>
                 {talentPage.slice.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
+                    <td colSpan={8} className="px-6 py-8 text-center text-gray-400">
                       {talentQuery ? "No talent matches your search." : "No talent applications yet."}
                     </td>
                   </tr>
@@ -178,6 +181,13 @@ export default async function AdminDashboard({
                     <td className="px-6 py-4 font-medium text-gray-900">{talent.name}</td>
                     <td className="px-6 py-4 text-gray-600">{talent.role}</td>
                     <td className="px-6 py-4 text-gray-600">{talent.country}</td>
+                    <td className="px-6 py-4">
+                      <CvDownloadButton
+                        talentId={talent.id}
+                        filename={talent.cvFilename}
+                        cvLink={talent.cvLink}
+                      />
+                    </td>
                     <td className="px-6 py-4">
                       <Badge variant={talent.status === "Verified" ? "success" : "default"}>
                         {talent.status}

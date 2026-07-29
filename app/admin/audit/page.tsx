@@ -19,6 +19,9 @@ const ACTION_LABELS: Record<string, string> = {
   [AUDIT_ACTIONS.USER_ROLE_SET]: "Account role changed",
   [AUDIT_ACTIONS.INTEREST_STATUS_SET]: "Interest status changed",
   [AUDIT_ACTIONS.DATA_EXPORT]: "Data exported (CSV)",
+  [AUDIT_ACTIONS.CV_DOWNLOAD]: "CV downloaded",
+  [AUDIT_ACTIONS.TRAINING_VIDEO_SET]: "Training video uploaded",
+  [AUDIT_ACTIONS.TRAINING_MODULE_PUBLISHED]: "Training module published",
 };
 
 // Renders a before/after pair as "old → new" per field. Values are whatever the
@@ -85,6 +88,7 @@ export default async function AdminAuditPage({
             <Link href="/admin/users" className={navLink}>Users</Link>
             <Link href="/admin/directory" className={navLink}>Directory</Link>
             <Link href="/admin/interests" className={navLink}>Interests</Link>
+            <Link href="/admin/training" className={navLink}>Training</Link>
           </div>
         </div>
 

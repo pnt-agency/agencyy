@@ -34,6 +34,18 @@ export const talentInputSchema = z.object({
     .max(500)
     .optional()
     .or(z.literal("")),
+  // A CV already uploaded to R2. The client sends back what the presign step
+  // gave it; the key is re-checked here so a caller can't attach an arbitrary
+  // object — only one under the "cv/" prefix this app issues.
+  cv: z
+    .object({
+      key: z.string().regex(/^cv\/[a-f0-9-]{36}\.(pdf|docx?|doc)$/, "Invalid file reference"),
+      filename: z.string().trim().min(1).max(255),
+      size: z.number().int().positive().max(10 * 1024 * 1024),
+      contentType: z.string().trim().max(120),
+    })
+    .nullable()
+    .optional(),
 });
 
 export const employerInputSchema = z.object({

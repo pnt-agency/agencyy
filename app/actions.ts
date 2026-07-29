@@ -10,7 +10,11 @@ import { talentInputSchema, employerInputSchema, expressInterestSchema } from "@
 import { isAssignableAccountRole } from "@/lib/roles";
 import { revalidatePath } from "next/cache";
 
-export async function submitTalentApplication(data: Omit<Talent, "id" | "status" | "createdAt">) {
+export async function submitTalentApplication(
+  data: Omit<Talent, "id" | "status" | "createdAt"> & {
+    cv?: { key: string; filename: string; size: number; contentType: string } | null;
+  }
+) {
   // 0. Re-validate on the server — this action is a public endpoint and cannot
   // trust that the client ran its own validation.
   const parsed = talentInputSchema.safeParse(data);
@@ -29,7 +33,7 @@ export async function submitTalentApplication(data: Omit<Talent, "id" | "status"
 
   try {
     // 1. Create database record (critical — fail if this fails)
-    await createTalentRecord(parsed.data, submitter?.id ?? null);
+    await createTalentRecord(parsed.data, submitter?.id ?? null, parsed.data.cv ?? null);
   } catch (error) {
     console.error("Error saving talent application:", error);
     return { success: false, error: "Failed to submit application. Please try again." };
@@ -522,10 +526,13 @@ export async function exportAdminDataAction() {
     ]);
 
     const talentCsv = toCsv(
-      ["Name", "Email", "Phone", "Country", "Role", "Experience", "Portfolio", "CV Link", "Status", "Follow-up", "Notes", "Created"],
+      ["Name", "Email", "Phone", "Country", "Role", "Experience", "Portfolio", "CV Link", "CV File", "Status", "Follow-up", "Notes", "Created"],
+      // The uploaded file is named, not linked: a presigned URL expires in
+      // seconds, so pasting one into a spreadsheet would export a dead link.
+      // Admins download it from the pipeline, where the access is logged.
       talentRows.map((t) => [
         t.name, t.email, t.phone, t.country, t.role, t.experience,
-        t.portfolio, t.cvLink, t.status, t.followUpDate, t.notes, t.createdAt,
+        t.portfolio, t.cvLink, t.cvFilename, t.status, t.followUpDate, t.notes, t.createdAt,
       ])
     );
 

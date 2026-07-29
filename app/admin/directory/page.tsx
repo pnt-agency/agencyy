@@ -36,6 +36,7 @@ export default async function AdminDirectoryPage({
             <Link href="/admin" className={navLink}>← Pipeline</Link>
             <Link href="/admin/interests" className={navLink}>Interests</Link>
             <Link href="/admin/users" className={navLink}>Users</Link>
+            <Link href="/admin/training" className={navLink}>Training</Link>
             <Link href="/admin/audit" className={navLink}>Audit Log →</Link>
           </div>
         </div>

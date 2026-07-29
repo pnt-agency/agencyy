@@ -1,4 +1,4 @@
-import { eq, desc, and, or, gte, count, sql, ilike, isNull } from "drizzle-orm";
+import { eq, desc, and, or, gte, count, sql, ilike, isNull, isNotNull, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from ".";
 import {
@@ -11,6 +11,9 @@ import {
   talentInterests,
   notifications,
   auditLogs,
+  trainingModules,
+  trainingQuestions,
+  trainingProgress,
   type TalentRow,
   type EmployerRow,
   type UserRow,
@@ -21,6 +24,10 @@ import {
   type NotificationRow,
   type AuditLogRow,
   type NewAuditLogRow,
+  type TrainingModuleRow,
+  type NewTrainingModuleRow,
+  type TrainingQuestionRow,
+  type TrainingProgressRow,
 } from "./schema";
 import type { Talent, Employer } from "@/types";
 
@@ -32,12 +39,17 @@ const DEDUP_WINDOW_MS = 5 * 60 * 1000;
 
 export async function createTalentRecord(
   data: Omit<Talent, "id" | "status" | "createdAt">,
-  userId: string | null = null
+  userId: string | null = null,
+  cv: { key: string; filename: string; size: number; contentType: string } | null = null
 ): Promise<TalentRow> {
   const [record] = await db
     .insert(talents)
     .values({
       userId,
+      cvKey: cv?.key ?? null,
+      cvFilename: cv?.filename ?? null,
+      cvSize: cv?.size ?? null,
+      cvContentType: cv?.contentType ?? null,
       name: data.name,
       email: data.email,
       phone: data.phone,
@@ -699,4 +711,105 @@ export async function listAuditLogs(filters: AuditLogFilters = {}): Promise<Audi
     .from(auditLogs)
     .where(conds.length ? and(...conds) : undefined)
     .orderBy(desc(auditLogs.createdAt));
+}
+
+// ---------- Training ----------
+
+export type TrainingModuleWithQuestions = TrainingModuleRow & {
+  questions: TrainingQuestionRow[];
+};
+
+/**
+ * The curriculum in order, each module with its questions.
+ *
+ * `publishedOnly` separates the two audiences: members see only what's ready,
+ * admins see everything so they can work on a module before releasing it.
+ */
+export async function listTrainingModules(
+  publishedOnly: boolean
+): Promise<TrainingModuleWithQuestions[]> {
+  const modules = await db
+    .select()
+    .from(trainingModules)
+    .where(publishedOnly ? eq(trainingModules.published, true) : undefined)
+    .orderBy(trainingModules.position);
+  if (modules.length === 0) return [];
+
+  const questions = await db
+    .select()
+    .from(trainingQuestions)
+    .where(inArray(trainingQuestions.moduleId, modules.map((m) => m.id)))
+    .orderBy(trainingQuestions.position);
+
+  return modules.map((module) => ({
+    ...module,
+    questions: questions.filter((q) => q.moduleId === module.id),
+  }));
+}
+
+export async function getTrainingModule(id: string): Promise<TrainingModuleRow | null> {
+  const [row] = await db.select().from(trainingModules).where(eq(trainingModules.id, id));
+  return row ?? null;
+}
+
+export async function updateTrainingModule(
+  id: string,
+  data: Partial<Pick<NewTrainingModuleRow, "title" | "description" | "published" | "videoKey" | "videoDurationSeconds">>
+): Promise<void> {
+  await db
+    .update(trainingModules)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(trainingModules.id, id));
+}
+
+export async function listTrainingProgress(userId: string): Promise<TrainingProgressRow[]> {
+  return db.select().from(trainingProgress).where(eq(trainingProgress.userId, userId));
+}
+
+/**
+ * Records that a member finished a module's video or its quiz.
+ *
+ * Upserts on (userId, moduleId) and only ever moves a timestamp from null to
+ * set — re-watching a video must not reset a completion, and the two fields are
+ * written by separate calls.
+ */
+export async function markTrainingProgress(
+  userId: string,
+  moduleId: string,
+  field: "watchedAt" | "completedAt"
+): Promise<void> {
+  const now = new Date();
+  await db
+    .insert(trainingProgress)
+    .values({ userId, moduleId, [field]: now })
+    .onConflictDoUpdate({
+      target: [trainingProgress.userId, trainingProgress.moduleId],
+      set: { [field]: sql`coalesce(${trainingProgress[field]}, ${now})` },
+    });
+}
+
+/** How many modules a member has completed — for the admin directory view. */
+export async function countCompletedModules(userId: string): Promise<number> {
+  const [row] = await db
+    .select({ n: count() })
+    .from(trainingProgress)
+    .where(and(eq(trainingProgress.userId, userId), isNotNull(trainingProgress.completedAt)));
+  return row?.n ?? 0;
+}
+
+// ---------- CV files ----------
+
+export async function setTalentCv(
+  talentId: string,
+  cv: { key: string; filename: string; size: number; contentType: string } | null
+): Promise<void> {
+  await db
+    .update(talents)
+    .set({
+      cvKey: cv?.key ?? null,
+      cvFilename: cv?.filename ?? null,
+      cvSize: cv?.size ?? null,
+      cvContentType: cv?.contentType ?? null,
+    })
+    .where(eq(talents.id, talentId));
 }

@@ -16,6 +16,10 @@ export const AUDIT_ACTIONS = {
   USER_ROLE_SET: "user.role.set",
   INTEREST_STATUS_SET: "interest.status.set",
   DATA_EXPORT: "data.export",
+  // Reading an applicant's CV is PII access, so it's logged like a mutation.
+  CV_DOWNLOAD: "talent.cv.download",
+  TRAINING_VIDEO_SET: "training.video.set",
+  TRAINING_MODULE_PUBLISHED: "training.module.published",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
@@ -26,6 +30,7 @@ export const AUDIT_TARGETS = {
   USER: "user",
   INTEREST: "interest",
   DATASET: "dataset",
+  TRAINING_MODULE: "training_module",
 } as const;
 
 export type AuditTarget = (typeof AUDIT_TARGETS)[keyof typeof AUDIT_TARGETS];

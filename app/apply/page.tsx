@@ -6,6 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2 } from "lucide-react";
+import { FileUpload, type UploadedFile } from "@/components/ui/file-upload";
+import { presignCvUploadAction } from "@/app/upload-actions";
 
 const applySchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -36,6 +38,9 @@ export default function ApplyPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // The file is already in R2 by the time the form is submitted — this holds
+  // the key to attach to the application row.
+  const [cv, setCv] = useState<UploadedFile | null>(null);
 
   const {
     register,
@@ -61,6 +66,9 @@ export default function ApplyPage() {
       bio: data.bio,
       whyJoin: data.whyJoin,
       cvLink: data.cvLink || "",
+      cv: cv
+        ? { key: cv.key, filename: cv.filename, size: cv.size, contentType: cv.contentType }
+        : null,
     });
 
     setIsSubmitting(false);
@@ -205,15 +213,36 @@ export default function ApplyPage() {
               {errors.whyJoin && <p className="text-red-500 text-xs">{errors.whyJoin.message}</p>}
             </div>
 
-            <div className="space-y-2">
-              <label htmlFor="cvLink" className="text-sm font-medium text-black">Link to CV / Resume</label>
-              <input
-                id="cvLink"
-                {...register("cvLink")}
-                className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-                placeholder="https://drive.google.com/..."
+            {/* Upload is the primary route; the link below stays for anyone who
+                would rather share a Drive or LinkedIn URL, or whose connection
+                won't carry a file. Either is enough — both are optional. */}
+            <div className="space-y-4 rounded-xl border border-gray-200 p-4">
+              <FileUpload
+                presign={presignCvUploadAction}
+                accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                maxBytes={10 * 1024 * 1024}
+                label="CV / Resume"
+                hint="PDF or Word document, up to 10MB"
+                value={cv}
+                onChange={setCv}
               />
-              {errors.cvLink && <p className="text-red-500 text-xs">{errors.cvLink.message}</p>}
+
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-gray-200" />
+                <span className="text-xs text-gray-400">or link to it</span>
+                <div className="h-px flex-1 bg-gray-200" />
+              </div>
+
+              <div className="space-y-2">
+                <label htmlFor="cvLink" className="text-sm font-medium text-black">Link to CV / Resume</label>
+                <input
+                  id="cvLink"
+                  {...register("cvLink")}
+                  className="w-full px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+                  placeholder="https://drive.google.com/..."
+                />
+                {errors.cvLink && <p className="text-red-500 text-xs">{errors.cvLink.message}</p>}
+              </div>
             </div>
 
             {submitError && (
