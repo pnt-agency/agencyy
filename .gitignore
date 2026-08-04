@@ -46,3 +46,6 @@ DEPLOY_ENV.md
 *.tsbuildinfo
 next-env.d.ts
 public/videos/
+
+
+/cyber_audit
