@@ -6,6 +6,7 @@ import { signOut } from "next-auth/react";
 import { LogOut, ShieldAlert, MailWarning, Trash2 } from "lucide-react";
 import { deleteMyAccount } from "@/app/auth-actions";
 import { DELETE_ACCOUNT_CONFIRMATION } from "@/lib/validation";
+import { SecurityCheckup } from "@/components/member/security-checkup";
 
 export type AccountSummary = {
   name: string;
@@ -13,6 +14,8 @@ export type AccountSummary = {
   accountType: string;
   memberSince: string;
   emailVerified: boolean;
+  hasPassword: boolean;
+  twoStepEnabledSince: string | null;
 };
 
 export function AccountSettings({ account }: { account: AccountSummary }) {
@@ -93,6 +96,15 @@ export function AccountSettings({ account }: { account: AccountSummary }) {
             </div>
           )}
         </div>
+
+        <SecurityCheckup
+          summary={{
+            email: account.email,
+            emailVerified: account.emailVerified,
+            hasPassword: account.hasPassword,
+            twoStepEnabledSince: account.twoStepEnabledSince,
+          }}
+        />
 
         {/* Sign out */}
         <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8 mb-6 animate-fade-up">

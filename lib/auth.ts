@@ -6,8 +6,11 @@ import { eq, and, isNull } from "drizzle-orm";
 import { getServerSession } from "next-auth/next";
 import { db } from "./db";
 import { users, type UserRow } from "./db/schema";
+import { softDeleteUser } from "./db/queries";
 import { sendWelcomeEmail } from "./resend";
 import { appBaseUrl } from "./tokens";
+import { issueTwoStepCode, verifyTwoStepCode, SIGN_IN_CODE } from "./two-step";
+import { TWO_STEP_ERRORS } from "./two-step-shared";
 
 // Fail loudly in production if the session-signing secret is missing, rather
 // than silently falling back to an auto-generated (and unstable) one.
@@ -26,6 +29,8 @@ const providers: NextAuthOptions["providers"] = [
     credentials: {
       email: { label: "Email", type: "email", placeholder: "you@example.com" },
       password: { label: "Password", type: "password" },
+      // Only sent on the second round of a two-step sign-in.
+      passcode: { label: "Sign-in code", type: "text" },
     },
     async authorize(credentials) {
       if (!credentials?.email || !credentials?.password) {
@@ -45,6 +50,27 @@ const providers: NextAuthOptions["providers"] = [
       const isValid = await bcrypt.compare(credentials.password, user.passwordHash);
       if (!isValid) {
         return null;
+      }
+
+      // Two-step verification. Everything below runs only after the password
+      // checked out, so none of these distinct errors tell a caller anything
+      // about an account whose password they don't already have.
+      //
+      // The flow is two calls to signIn() with the same email and password:
+      // the first (no code) emails one and throws REQUIRED, which NextAuth
+      // surfaces as result.error so the form can ask for it; the second
+      // carries the code. The password is re-checked both times, so the code
+      // alone is never enough.
+      if (user.twoStepEnabledAt) {
+        if (!credentials.passcode) {
+          const issued = await issueTwoStepCode(user, SIGN_IN_CODE);
+          if (issued === "rate_limited") throw new Error(TWO_STEP_ERRORS.RATE_LIMITED);
+          if (issued === "send_failed") throw new Error(TWO_STEP_ERRORS.SEND_FAILED);
+          throw new Error(TWO_STEP_ERRORS.REQUIRED);
+        }
+        const verified = await verifyTwoStepCode(user.id, SIGN_IN_CODE, credentials.passcode);
+        if (verified === "rate_limited") throw new Error(TWO_STEP_ERRORS.RATE_LIMITED);
+        if (verified !== "ok") throw new Error(TWO_STEP_ERRORS.INVALID);
       }
 
       return { id: user.id, name: user.name, email: user.email, role: user.role };
@@ -97,10 +123,37 @@ export const authOptions: NextAuthOptions = {
         // Scoped to active users: a returning member whose account was deleted
         // gets a brand-new one rather than being handed the tombstone. The old
         // row no longer holds this address, so the insert below can't collide.
-        const [existing] = await db
-          .select()
-          .from(users)
-          .where(and(eq(users.email, email), activeUser));
+        let existing: UserRow | undefined = (
+          await db
+            .select()
+            .from(users)
+            .where(and(eq(users.email, email), activeUser))
+        )[0];
+
+        // An unverified password account at this address is replaced, never
+        // adopted. Nothing ever proved whoever created it owns the address —
+        // anyone can register as someone else's email — so adopting it would
+        // hand the real owner an account whose password, and whose live
+        // sessions, belong to that stranger: register as the victim, sign in,
+        // wait for the victim to arrive via Google, and you're in their account.
+        //
+        // Replacing it gives the Google user a new id, which is what actually
+        // revokes the stranger: activeSession() only honours a session for the
+        // account id it was issued to. Clearing the password alone would not —
+        // an existing session would carry straight on.
+        //
+        // Cost, in the rare honest case (someone registered, never clicked
+        // their link, then used Google): the new account starts at role "user",
+        // so they pick talent/employer again. Nothing else is lost — an
+        // unverified account can't reach profile setup to have built anything.
+        if (existing && !existing.emailVerified) {
+          console.warn(
+            `[auth] replacing unverified password account ${existing.id} on Google sign-in`
+          );
+          await softDeleteUser(existing.id);
+          existing = undefined;
+        }
+
         if (!existing) {
           const name = profile.name ?? email;
           await db.insert(users).values({
@@ -115,13 +168,6 @@ export const authOptions: NextAuthOptions = {
           } catch (error) {
             console.warn("Welcome email could not be sent:", error);
           }
-        } else if (!existing.emailVerified) {
-          // Pre-existing password account whose owner just proved the address
-          // through Google — clear the "please verify your email" state.
-          await db
-            .update(users)
-            .set({ emailVerified: new Date() })
-            .where(eq(users.id, existing.id));
         }
         return true;
       }
@@ -162,6 +208,12 @@ export const authOptions: NextAuthOptions = {
  * cookie that outlived its account — an expired JWT is up to 30 days behind
  * reality, and deleting an account can't reach into the browser — stops
  * authenticating the moment the row goes.
+ *
+ * The account must also be the *same* one the session was issued to, not just
+ * one holding the same address. Emails get reused: a deleted account frees its
+ * address for a new signup, and Google sign-in replaces an unverified password
+ * account (see the signIn callback). Matching by email alone would let a cookie
+ * from the old account walk straight into the new one.
  */
 async function activeSession(): Promise<{ session: Session; account: UserRow } | null> {
   const session = await getServerSession(authOptions);
@@ -172,7 +224,8 @@ async function activeSession(): Promise<{ session: Session; account: UserRow } |
     .select()
     .from(users)
     .where(and(eq(users.email, email.trim().toLowerCase()), activeUser));
-  return account ? { session, account } : null;
+  if (!account || account.id !== session.user.id) return null;
+  return { session, account };
 }
 
 /**

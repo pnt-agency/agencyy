@@ -106,6 +106,10 @@ export const users = pgTable("users", {
   role: text("role").notNull().default("user"),
   // Set when the user confirms their email via a verification link.
   emailVerified: timestamp("email_verified", { withTimezone: true }),
+  // Two-step verification ("passcode"): when set, a password sign-in also needs
+  // a one-time code emailed to the account. Null means off. Google sign-ins are
+  // unaffected — they're protected by the Google account's own security.
+  twoStepEnabledAt: timestamp("two_step_enabled_at", { withTimezone: true }),
   // Soft delete. The row is kept so signup cohorts, lead attribution and every
   // other historical count stay intact after someone leaves — but a non-null
   // deletedAt means "this account no longer exists" everywhere in the app, so

@@ -49,3 +49,5 @@ public/videos/
 
 
 /cyber_audit
+# Source PDFs for the legal pages; the site renders its own copy in app/privacy and app/terms.
+/legaldocs/

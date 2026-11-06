@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { openCookieSettings } from "@/components/cookie-consent/cookie-banner";
 
 export function Footer() {
   // Reading the session on the client, the way the navbar does, rather than
@@ -69,8 +70,11 @@ export function Footer() {
             <h3 className="text-gold font-display font-bold mb-5 text-sm uppercase tracking-widest">Legal</h3>
             <ul className="space-y-3">
               {[
-                { href: "/privacy", label: "Privacy Policy" },
-                { href: "/terms",   label: "Terms of Service" },
+                // Four documents on two pages; see app/privacy and app/terms.
+                { href: "/privacy",                 label: "Privacy Policy" },
+                { href: "/privacy#cookie-policy",   label: "Cookie Policy" },
+                { href: "/terms#terms-of-use",      label: "Terms of Use" },
+                { href: "/terms#user-agreement",    label: "User Agreement" },
                 // No admin entry point here on purpose: it never logged anyone
                 // in (/admin redirects non-admins to the sign-in page), and an
                 // admin already reaches it from their dashboard.
@@ -85,6 +89,18 @@ export function Footer() {
                   </Link>
                 </li>
               ))}
+              {/* The Cookie Policy (3.2) names this control and its place in
+                  the footer; it reopens the consent banner's settings. */}
+              <li>
+                <button
+                  type="button"
+                  onClick={openCookieSettings}
+                  className="text-sm text-white/50 hover:text-gold transition-colors duration-200 flex items-center gap-2 group cursor-pointer"
+                >
+                  <span className="w-1 h-1 rounded-full bg-gold/40 group-hover:bg-gold transition-colors" />
+                  Privacy &amp; Cookie Settings
+                </button>
+              </li>
             </ul>
           </div>
 

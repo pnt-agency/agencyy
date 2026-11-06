@@ -56,6 +56,19 @@ export const RATE_LIMITS = {
   PASSWORD_RESET: { name: "password-reset", limit: 5, windowMs: HOUR },
   // Account creation also sends mail (the verification link).
   REGISTER: { name: "register", limit: 5, windowMs: HOUR },
+
+  // Two-step verification. These are keyed on the *account*, not the IP: the
+  // thing being protected is one account's code, and an attacker rotating IPs
+  // must not get a fresh set of guesses each time.
+  //
+  // Sending is bounded because every send is an email. Verifying is bounded
+  // because a code is only six digits: five guesses against a million
+  // possibilities, on a code that expires in ten minutes, is the whole of an
+  // attacker's chance per code — and each new code needs the password again.
+  TWO_STEP_SEND: { name: "two-step-send", limit: 5, windowMs: 15 * MINUTE },
+  TWO_STEP_VERIFY: { name: "two-step-verify", limit: 5, windowMs: 15 * MINUTE },
+  // Re-entering the password to turn two-step off. Keyed on the account too.
+  PASSWORD_CONFIRM: { name: "password-confirm", limit: 5, windowMs: 15 * MINUTE },
 } as const satisfies Record<string, RateLimitRule>;
 
 export type RateLimitResult =

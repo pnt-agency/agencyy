@@ -7,6 +7,22 @@ import { MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH } from "./password";
 // inside the server actions because a server action is a public HTTP endpoint
 // and cannot trust the client to have validated anything.
 
+/**
+ * Options for a URL field that ends up as a clickable link: http(s) only.
+ *
+ * A bare `.url()` accepts any scheme the URL parser does — `javascript:`,
+ * `data:` and the rest — and these values are rendered as links in the admin
+ * dashboard, where an admin is the one clicking. React 19 neutralises
+ * `javascript:` hrefs today, but that is a property of whatever renders the
+ * value, not of the value; a stored link should be safe wherever it ends up.
+ *
+ * Exported so client-side schemas can mirror the rule exactly.
+ */
+export const WEB_URL = {
+  protocol: /^https?$/,
+  error: "Must be a valid link starting with http:// or https://",
+} as const;
+
 export const talentInputSchema = z.object({
   name: z.string().trim().min(2, "Name is required").max(120),
   email: z.string().trim().email("Invalid email address").max(254),
@@ -17,7 +33,7 @@ export const talentInputSchema = z.object({
   portfolio: z
     .string()
     .trim()
-    .url("Must be a valid URL")
+    .url(WEB_URL)
     .max(500)
     .optional()
     .or(z.literal("")),
@@ -30,7 +46,7 @@ export const talentInputSchema = z.object({
   cvLink: z
     .string()
     .trim()
-    .url("Must be a valid URL")
+    .url(WEB_URL)
     .max(500)
     .optional()
     .or(z.literal("")),
@@ -137,7 +153,7 @@ export const talentProfileSchema = z.object({
   portfolio: z
     .string()
     .trim()
-    .url("Must be a valid URL")
+    .url(WEB_URL)
     .max(500)
     .optional()
     .or(z.literal("")),

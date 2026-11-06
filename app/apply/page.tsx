@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,6 +10,7 @@ import { CheckCircle2 } from "lucide-react";
 import { FileUpload, type UploadedFile } from "@/components/ui/file-upload";
 import { presignCvUploadAction } from "@/app/upload-actions";
 import { useAntiBot, HoneypotField, TurnstileWidget } from "@/components/ui/anti-bot";
+import { WEB_URL } from "@/lib/validation";
 
 const applySchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -17,10 +19,10 @@ const applySchema = z.object({
   country: z.string().min(2, "Country is required"),
   role: z.string().min(1, "Please select a role"),
   experience: z.string().min(1, "Years of experience is required"),
-  portfolio: z.string().url("Must be a valid URL").optional().or(z.literal('')),
+  portfolio: z.string().url(WEB_URL).optional().or(z.literal('')),
   bio: z.string().min(10, "Bio must be at least 10 characters"),
   whyJoin: z.string().min(10, "Please tell us why you want to join"),
-  cvLink: z.string().url("Must be a valid URL").max(500).optional().or(z.literal("")),
+  cvLink: z.string().url(WEB_URL).max(500).optional().or(z.literal("")),
 });
 
 type ApplyFormValues = z.infer<typeof applySchema>;
@@ -269,6 +271,12 @@ export default function ApplyPage() {
             >
               {isSubmitting ? "Submitting..." : "Submit Application"}
             </Button>
+            <p className="text-center text-xs text-gray-500">
+              By submitting, you agree to our{" "}
+              <Link href="/terms#terms-of-use" className="underline hover:text-black">Terms of Use</Link> and
+              acknowledge that you have read our{" "}
+              <Link href="/privacy" className="underline hover:text-black">Privacy Policy</Link>.
+            </p>
           </form>
         </div>
       </div>

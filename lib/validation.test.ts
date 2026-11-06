@@ -104,3 +104,37 @@ describe("public lead schemas", () => {
     expect(talentInputSchema.safeParse({ ...ok, bio: "short" }).success).toBe(false);
   });
 });
+
+describe("link fields accept only http(s)", () => {
+  // These are rendered as clickable links in the admin dashboard, and the
+  // talent application is a public, unauthenticated endpoint.
+  const ok = {
+    name: "Jo", email: "jo@x.com", phone: "12345", country: "US", role: "VA",
+    experience: "3", bio: "a decent bio here", whyJoin: "a decent reason here",
+  };
+  const unsafe = [
+    "javascript:alert(1)",
+    "JavaScript:alert(1)",
+    "data:text/html,<script>alert(1)</script>",
+    "vbscript:msgbox(1)",
+    "file:///etc/passwd",
+  ];
+
+  it.each(["portfolio", "cvLink"] as const)("rejects non-web schemes in the application's %s", (field) => {
+    for (const value of unsafe) {
+      expect(talentInputSchema.safeParse({ ...ok, [field]: value }).success, value).toBe(false);
+    }
+  });
+
+  it.each(["portfolio", "cvLink"] as const)("still accepts http(s) and empty in the application's %s", (field) => {
+    expect(talentInputSchema.safeParse({ ...ok, [field]: "https://linkedin.com/in/jo" }).success).toBe(true);
+    expect(talentInputSchema.safeParse({ ...ok, [field]: "http://example.com/cv.pdf" }).success).toBe(true);
+    expect(talentInputSchema.safeParse({ ...ok, [field]: "" }).success).toBe(true);
+  });
+
+  it("rejects non-web schemes in the member profile portfolio", () => {
+    for (const value of unsafe) {
+      expect(talentProfileSchema.safeParse({ portfolio: value }).success, value).toBe(false);
+    }
+  });
+});

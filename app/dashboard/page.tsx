@@ -30,6 +30,9 @@ export default async function DashboardPage() {
   const account = await getUserByEmail(user.email);
   const role = account?.role ?? user.role;
   const isEmployer = role === "employer";
+  // Leads are matched by email only once the account has proven it owns that
+  // address — see countTalentApplicationsForUser.
+  const verifiedEmail = account?.emailVerified ? user.email : null;
 
   // Role-specific metrics. Only talent/employer own a profile, so an admin
   // fetches nothing and the view hides those panels.
@@ -37,8 +40,8 @@ export default async function DashboardPage() {
     isEmployer ? Promise.resolve(null) : getTalentProfile(user.id),
     isEmployer ? getEmployerProfile(user.id) : Promise.resolve(null),
     isEmployer
-      ? countEmployerInquiriesForUser(user.id, user.email)
-      : countTalentApplicationsForUser(user.id, user.email),
+      ? countEmployerInquiriesForUser(user.id, verifiedEmail)
+      : countTalentApplicationsForUser(user.id, verifiedEmail),
     isEmployer ? Promise.resolve(0) : countInterestsForTalent(user.id),
   ]);
 

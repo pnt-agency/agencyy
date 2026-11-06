@@ -34,7 +34,12 @@ import {
   VERIFY_EMAIL,
   RESET_PASSWORD,
 } from "@/lib/tokens";
-import { sendVerificationEmail, sendPasswordResetEmail, sendWelcomeEmail } from "@/lib/resend";
+import {
+  sendVerificationEmail,
+  sendPasswordResetEmail,
+  sendWelcomeEmail,
+  sendSecurityNoticeEmail,
+} from "@/lib/resend";
 import { checkIpRateLimit, rateLimitMessage, RATE_LIMITS } from "@/lib/rate-limit";
 
 type ActionResult =
@@ -99,13 +104,12 @@ export async function registerMember(data: unknown): Promise<ActionResult> {
     return { success: false, error: "Could not create your account. Please try again." };
   }
 
-  // Adopt any leads this person submitted before signing up, so their dashboard
-  // isn't empty on day one. Non-critical — the count is cosmetic.
-  try {
-    await claimLeadsForUser(user.id, user.email);
-  } catch (error) {
-    console.warn("Could not claim existing leads for new account:", error);
-  }
+  // Leads submitted under this address before signup are deliberately NOT
+  // claimed here. Nothing yet proves the registrant owns the address: anyone can
+  // sign up as someone else's email, and claiming now would attach that
+  // person's applications to the impostor's account — and route the admin's
+  // status-change notifications for them there. Claiming happens in
+  // verifyEmail(), once the address is proven.
 
   // Send the verification email (non-critical — account still works if it fails).
   try {
@@ -203,8 +207,9 @@ export async function verifyEmail(rawToken: string): Promise<ActionResult> {
   // most once per account — no duplicate welcome mail on a replayed link.
   const user = await getUserById(token.userId);
 
-  // Claim again on verify: this catches anyone who applied between signing up
-  // and verifying.
+  // The only place password accounts claim earlier leads: the address is now
+  // proven, so leads submitted under it can safely become this account's. Not
+  // done at registration — see registerMember().
   try {
     if (user) await claimLeadsForUser(user.id, user.email);
   } catch (error) {
@@ -358,9 +363,21 @@ export async function resetPassword(input: unknown): Promise<ActionResult> {
     const passwordHash = await bcrypt.hash(parsed.data.password, 12);
     await setUserPassword(token.userId, passwordHash);
     await deleteAuthToken(token.id);
-    return { success: true };
   } catch (error) {
     console.error("Error resetting password:", error);
     return { success: false, error: "Could not reset your password. Please try again." };
   }
+
+  // Tell the account holder. If they didn't do this, it's how they find out.
+  // Best-effort: the password has already changed and that must still report
+  // success.
+  try {
+    const user = await getUserById(token.userId);
+    if (user) {
+      await sendSecurityNoticeEmail(user.email, user.name, "password-changed", `${appBaseUrl()}/account#security`);
+    }
+  } catch (error) {
+    console.warn("Password-changed notice could not be sent:", error);
+  }
+  return { success: true };
 }

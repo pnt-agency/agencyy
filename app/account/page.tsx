@@ -26,6 +26,14 @@ export default async function AccountPage() {
       year: "numeric",
     }),
     emailVerified: isEmailVerified(account),
+    hasPassword: Boolean(account.passwordHash),
+    twoStepEnabledSince: account.twoStepEnabledAt
+      ? new Date(account.twoStepEnabledAt).toLocaleDateString("en-US", {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })
+      : null,
   };
 
   return <AccountSettings account={summary} />;

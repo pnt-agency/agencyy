@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -263,6 +264,12 @@ export default function HirePage() {
             >
               {isSubmitting ? "Submitting..." : "Submit Inquiry"}
             </Button>
+            <p className="text-center text-xs text-gray-500">
+              By submitting, you agree to our{" "}
+              <Link href="/terms#terms-of-use" className="underline hover:text-black">Terms of Use</Link> and
+              acknowledge that you have read our{" "}
+              <Link href="/privacy" className="underline hover:text-black">Privacy Policy</Link>.
+            </p>
           </form>
         </div>
       </div>

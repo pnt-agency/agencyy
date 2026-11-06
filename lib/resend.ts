@@ -145,6 +145,98 @@ export async function sendPasswordResetEmail(email: string, url: string) {
   );
 }
 
+/**
+ * A two-step verification code. `kind` says what it's for: finishing a sign-in,
+ * or confirming the inbox before two-step is switched on.
+ *
+ * The sign-in variant warns plainly about an unexpected code: one only goes
+ * out after the correct password, so receiving one you didn't ask for means
+ * someone else has that password.
+ */
+export async function sendTwoStepCodeEmail(
+  email: string,
+  name: string,
+  code: string,
+  kind: "sign-in" | "setup"
+) {
+  const codeBlock = emailPanel(
+    `<span style="font-size:28px;font-weight:700;letter-spacing:8px;color:#0a0a0a;">${esc(code)}</span>`
+  );
+  return send(
+    email,
+    kind === "sign-in" ? `${code} is your Amaris Partners sign-in code` : "Confirm two-step verification - Amaris Partners",
+    emailLayout({
+      preheader:
+        kind === "sign-in"
+          ? "Enter this code to finish signing in. It expires in 10 minutes."
+          : "Enter this code to turn on two-step verification.",
+      heading: kind === "sign-in" ? "Your sign-in code" : "Confirm two-step verification",
+      body:
+        p(`Hi ${esc(name)},`) +
+        p(
+          kind === "sign-in"
+            ? "Enter this code on the sign-in page to finish signing in to your Amaris Partners account."
+            : "Enter this code in your account settings to turn on two-step verification."
+        ) +
+        codeBlock +
+        p("This code expires in 10 minutes and can only be used once. Never share it — our team will never ask you for it.") +
+        (kind === "sign-in"
+          ? p("<strong>Didn't try to sign in?</strong> Someone has your password. Reset it now from the sign-in page using “Forgot password” — they still can't get in without this code.")
+          : "") +
+        SIGN_OFF,
+    })
+  );
+}
+
+export type SecurityNotice = "two-step-on" | "two-step-off" | "password-changed";
+
+const SECURITY_NOTICES: Record<SecurityNotice, { subject: string; heading: string; what: string }> = {
+  "two-step-on": {
+    subject: "Two-step verification is on",
+    heading: "Two-step verification is on",
+    what: "Two-step verification was turned on for your account. From now on, signing in with your password also needs a code we email to you.",
+  },
+  "two-step-off": {
+    subject: "Two-step verification was turned off",
+    heading: "Two-step verification was turned off",
+    what: "Two-step verification was turned off for your account. Signing in with your password no longer needs an emailed code.",
+  },
+  "password-changed": {
+    subject: "Your password was changed",
+    heading: "Your password was changed",
+    what: "The password for your Amaris Partners account was just changed.",
+  },
+};
+
+/**
+ * Tells the account holder a security setting changed. This is what backs the
+ * Privacy Policy's promise to notify people when something risky happens: if
+ * they didn't make the change, this is how they find out.
+ */
+export async function sendSecurityNoticeEmail(
+  email: string,
+  name: string,
+  notice: SecurityNotice,
+  accountUrl: string
+) {
+  const { subject, heading, what } = SECURITY_NOTICES[notice];
+  return send(
+    email,
+    `${subject} - Amaris Partners`,
+    emailLayout({
+      preheader: what,
+      heading,
+      body:
+        p(`Hi ${esc(name)},`) +
+        p(what) +
+        p("<strong>If this was you</strong>, there's nothing else to do.") +
+        p("<strong>If it wasn't</strong>, reset your password straight away using “Forgot password” on the sign-in page, then review your security settings.") +
+        emailButton(accountUrl, "Review my security settings") +
+        SIGN_OFF,
+    })
+  );
+}
+
 export async function sendTalentConfirmationEmail(email: string, name: string) {
   return send(
     email,

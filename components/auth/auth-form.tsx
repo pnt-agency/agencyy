@@ -9,6 +9,7 @@ import { registerMember } from "@/app/auth-actions";
 import { PasswordInput } from "@/components/ui/password-input";
 import { PasswordStrength } from "@/components/auth/password-strength";
 import { MIN_PASSWORD_LENGTH } from "@/lib/password";
+import { TWO_STEP_ERRORS, TWO_STEP_CODE_LENGTH } from "@/lib/two-step-shared";
 
 type Mode = "signin" | "signup";
 type Role = "talent" | "employer";
@@ -24,6 +25,61 @@ export function AuthForm({ oauthError = null }: { oauthError?: string | null }) 
   // "Continue with Google" explains itself instead of silently returning here.
   const [error, setError] = useState<string | null>(oauthError);
   const [loading, setLoading] = useState(false);
+  // Two-step verification: the password checked out and a code was emailed.
+  // Email and password stay in state — the second round re-sends both.
+  const [awaitingCode, setAwaitingCode] = useState(false);
+  const [code, setCode] = useState("");
+  const [codeNotice, setCodeNotice] = useState<string | null>(null);
+
+  const leaveCodeStep = () => {
+    setAwaitingCode(false);
+    setCode("");
+    setCodeNotice(null);
+  };
+
+  /** One round of credentials sign-in; with `passcode` on the two-step round. */
+  const signInWithPassword = async (passcode?: string) => {
+    const result = await signIn("credentials", {
+      email,
+      password,
+      ...(passcode ? { passcode } : {}),
+      redirect: false,
+    });
+
+    if (!result?.error) {
+      // A brand-new password account has an unverified address, and the
+      // profile is gated behind verification — so send them to the "check your
+      // inbox" screen rather than a profile form they'd be bounced out of.
+      router.push(mode === "signup" ? "/verify-email" : "/dashboard");
+      router.refresh();
+      return;
+    }
+
+    switch (result.error) {
+      case TWO_STEP_ERRORS.REQUIRED:
+        setAwaitingCode(true);
+        setCode("");
+        setCodeNotice(
+          `We emailed a ${TWO_STEP_CODE_LENGTH}-digit sign-in code to ${email}. It expires in 10 minutes.`
+        );
+        return;
+      case TWO_STEP_ERRORS.INVALID:
+        setError("That code is incorrect or has expired. Check your latest email, or send a new code.");
+        return;
+      case TWO_STEP_ERRORS.RATE_LIMITED:
+        setError("Too many attempts. Please wait a few minutes and try again.");
+        return;
+      case TWO_STEP_ERRORS.SEND_FAILED:
+        setError("We couldn't send your sign-in code. Please try again shortly.");
+        return;
+      default:
+        setError(
+          mode === "signup"
+            ? "Account created, but sign-in failed. Please try logging in."
+            : "Invalid email or password."
+        );
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,6 +87,11 @@ export function AuthForm({ oauthError = null }: { oauthError?: string | null }) 
     setLoading(true);
 
     try {
+      if (awaitingCode) {
+        await signInWithPassword(code);
+        return;
+      }
+
       if (mode === "signup") {
         const result = await registerMember({ name, email, password, role });
         if (!result.success) {
@@ -39,26 +100,17 @@ export function AuthForm({ oauthError = null }: { oauthError?: string | null }) 
         }
       }
 
-      const signInResult = await signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      });
+      await signInWithPassword();
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      if (signInResult?.error) {
-        setError(
-          mode === "signup"
-            ? "Account created, but sign-in failed. Please try logging in."
-            : "Invalid email or password."
-        );
-        return;
-      }
-
-      // A brand-new password account has an unverified address, and the profile
-      // is gated behind verification — so send them to the "check your inbox"
-      // screen rather than a profile form they'd be bounced out of.
-      router.push(mode === "signup" ? "/verify-email" : "/dashboard");
-      router.refresh();
+  const resendCode = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      await signInWithPassword();
     } finally {
       setLoading(false);
     }
@@ -111,6 +163,53 @@ export function AuthForm({ oauthError = null }: { oauthError?: string | null }) 
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4 animate-fade-up">
+            {awaitingCode ? (
+              <div className="space-y-4">
+                {codeNotice && (
+                  <p className="rounded-xl border border-gold/30 bg-gold/10 px-4 py-3 text-sm text-white/80">
+                    {codeNotice}
+                  </p>
+                )}
+                <div>
+                  <label htmlFor="passcode" className="block text-sm font-semibold mb-1.5 text-white/80">
+                    Sign-in code
+                  </label>
+                  <input
+                    id="passcode"
+                    required
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={TWO_STEP_CODE_LENGTH + 2}
+                    placeholder="123456"
+                    className="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/40 focus:border-gold/50 transition-all text-white placeholder:text-white/30 text-lg tracking-[0.4em]"
+                  />
+                </div>
+                <div className="flex justify-between gap-4 text-sm">
+                  <button
+                    type="button"
+                    onClick={resendCode}
+                    disabled={loading}
+                    className="text-white/60 hover:text-white transition-colors disabled:opacity-50"
+                  >
+                    Send a new code
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      leaveCodeStep();
+                      setPassword("");
+                      setError(null);
+                    }}
+                    className="text-white/60 hover:text-white transition-colors"
+                  >
+                    Use a different account
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
             {mode === "signup" && (
               <>
                 <div>
@@ -201,6 +300,8 @@ export function AuthForm({ oauthError = null }: { oauthError?: string | null }) 
                 </Link>
               </div>
             )}
+              </>
+            )}
 
             {error && (
               <p role="alert" className="text-red-400 text-sm">{error}</p>
@@ -213,6 +314,8 @@ export function AuthForm({ oauthError = null }: { oauthError?: string | null }) 
             >
               {loading
                 ? "Please wait..."
+                : awaitingCode
+                ? "Verify & Sign In"
                 : mode === "signup"
                 ? "Create Account"
                 : "Sign In"}
@@ -238,6 +341,7 @@ export function AuthForm({ oauthError = null }: { oauthError?: string | null }) 
               onClick={() => {
                 setMode(mode === "signup" ? "signin" : "signup");
                 setError(null);
+                leaveCodeStep();
               }}
               className="font-semibold text-white hover:underline"
             >
@@ -246,8 +350,10 @@ export function AuthForm({ oauthError = null }: { oauthError?: string | null }) 
           </p>
 
           <p className="mt-6 text-center text-xs text-white/30 max-w-xs mx-auto">
-            By continuing, you agree to Amaris Partners&apos;s{" "}
-            <Link href="/terms" className="underline hover:text-white/60">Terms of Service</Link> and{" "}
+            By continuing, you agree to the Amaris Partners{" "}
+            <Link href="/terms#user-agreement" className="underline hover:text-white/60">User Agreement</Link> and{" "}
+            <Link href="/terms#terms-of-use" className="underline hover:text-white/60">Terms of Use</Link>, and
+            acknowledge that you have read our{" "}
             <Link href="/privacy" className="underline hover:text-white/60">Privacy Policy</Link>.
           </p>
         </div>

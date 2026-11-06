@@ -208,41 +208,50 @@ export async function getUserByEmail(email: string): Promise<UserRow | null> {
 
 // A member's own leads are found by FK first, falling back to a case-insensitive
 // email match. The fallback still matters: someone can apply at /apply while
-// logged out and only make an account afterwards. claimLeadsForUser() converts
-// those matches into real FKs, but this OR keeps the count right in the window
-// before it runs — and for leads submitted under an unverified alias email.
+// logged out and only make an account afterwards, and claimLeadsForUser() only
+// converts those matches into real FKs at email verification. It also covers
+// Google accounts, which never pass through that claim.
+//
+// Pass `verifiedEmail` only once the account's address is proven, and null
+// otherwise. Anyone can register as someone else's address, and an unverified
+// account matching by email would see that person's lead count.
 export async function countTalentApplicationsForUser(
   userId: string,
-  email: string
+  verifiedEmail: string | null
 ): Promise<number> {
-  const normalized = email.trim().toLowerCase();
+  const ownLead = eq(talents.userId, userId);
   const [row] = await db
     .select({ value: count() })
     .from(talents)
     .where(
-      or(eq(talents.userId, userId), sql`lower(${talents.email}) = ${normalized}`)
+      verifiedEmail
+        ? or(ownLead, sql`lower(${talents.email}) = ${verifiedEmail.trim().toLowerCase()}`)
+        : ownLead
     );
   return row?.value ?? 0;
 }
 
 export async function countEmployerInquiriesForUser(
   userId: string,
-  email: string
+  verifiedEmail: string | null
 ): Promise<number> {
-  const normalized = email.trim().toLowerCase();
+  const ownLead = eq(employers.userId, userId);
   const [row] = await db
     .select({ value: count() })
     .from(employers)
     .where(
-      or(eq(employers.userId, userId), sql`lower(${employers.email}) = ${normalized}`)
+      verifiedEmail
+        ? or(ownLead, sql`lower(${employers.email}) = ${verifiedEmail.trim().toLowerCase()}`)
+        : ownLead
     );
   return row?.value ?? 0;
 }
 
-// Attach any unclaimed leads sharing this email to the account. Called when an
-// account is created and again when its email is verified, so a lead submitted
-// before signup still shows on the dashboard. Only touches rows where user_id
-// is null — never steals a lead already attributed to someone else.
+// Attach any unclaimed leads sharing this email to the account. Called only
+// once the email is verified (see verifyEmail in app/auth-actions.ts) — never
+// at signup, when nothing yet proves the registrant owns the address. Only
+// touches rows where user_id is null — never steals a lead already attributed
+// to someone else.
 export async function claimLeadsForUser(userId: string, email: string): Promise<void> {
   const normalized = email.trim().toLowerCase();
   await Promise.all([
@@ -365,6 +374,18 @@ export async function findValidAuthToken(
 
 export async function deleteAuthToken(id: string): Promise<void> {
   await db.delete(authTokens).where(eq(authTokens.id, id));
+}
+
+/** Drops every outstanding token of one purpose for an account. */
+export async function deleteAuthTokensFor(userId: string, purpose: string): Promise<void> {
+  await db
+    .delete(authTokens)
+    .where(and(eq(authTokens.userId, userId), eq(authTokens.purpose, purpose)));
+}
+
+/** Turns two-step verification on (with the moment it was enabled) or off (null). */
+export async function setTwoStepEnabled(userId: string, enabledAt: Date | null): Promise<void> {
+  await db.update(users).set({ twoStepEnabledAt: enabledAt }).where(eq(users.id, userId));
 }
 
 export async function getTalentProfile(
