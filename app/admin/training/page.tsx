@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAdminSession } from "@/lib/auth";
 import { listTrainingModules } from "@/lib/db/queries";
-import { isVideoStorageConfigured, videoUrl } from "@/lib/r2";
+import { isVideoStorageConfigured, videoLinkFor } from "@/lib/r2";
 import {
   TrainingModuleManager,
   type AdminModule,
@@ -18,20 +18,21 @@ export default async function AdminTrainingPage() {
   const modules = await listTrainingModules(false);
   const storageConfigured = isVideoStorageConfigured();
 
-  const view: AdminModule[] = modules.map((module) => ({
-    id: module.id,
-    position: module.position,
-    title: module.title,
-    description: module.description,
-    hasVideo: Boolean(module.videoKey),
-    // Resolved server-side: videoUrl() throws when the public base URL is
-    // unset, and a half-configured deploy shouldn't crash the page.
-    videoUrl:
-      module.videoKey && storageConfigured ? videoUrl(module.videoKey) : null,
-    durationSeconds: module.videoDurationSeconds,
-    published: module.published,
-    questionCount: module.questions.length,
-  }));
+  const view: AdminModule[] = await Promise.all(
+    modules.map(async (module) => ({
+      id: module.id,
+      position: module.position,
+      title: module.title,
+      description: module.description,
+      hasVideo: Boolean(module.videoKey),
+      // A short-lived signed link, minted per page load; null renders as "no
+      // video" rather than crashing a half-configured deploy.
+      videoUrl: await videoLinkFor(module.videoKey),
+      durationSeconds: module.videoDurationSeconds,
+      published: module.published,
+      questionCount: module.questions.length,
+    }))
+  );
 
   return (
     <div className="flex-1 bg-gray-50 px-4 pt-28 pb-8 sm:px-8">

@@ -7,9 +7,7 @@ beforeAll(() => {
   process.env.R2_ACCOUNT_ID = "test-account";
   process.env.R2_ACCESS_KEY_ID = "test-key-id";
   process.env.R2_SECRET_ACCESS_KEY = "test-secret";
-  process.env.R2_BUCKET = "cvs-private";
-  process.env.R2_PUBLIC_BUCKET = "media-public";
-  process.env.R2_PUBLIC_BASE_URL = "https://media.example.com/";
+  process.env.R2_BUCKET = "amaris-private";
 });
 
 async function r2() {
@@ -74,7 +72,7 @@ describe("presignCvUpload", () => {
   it("targets the private bucket and expires quickly", async () => {
     const { presignCvUpload } = await r2();
     const { url } = await presignCvUpload("application/pdf", 4096);
-    expect(url).toContain("cvs-private");
+    expect(url).toContain("amaris-private");
     expect(new URL(url).searchParams.get("X-Amz-Expires")).toBe("300");
   });
 
@@ -87,11 +85,11 @@ describe("presignCvUpload", () => {
 });
 
 describe("presignVideoUpload", () => {
-  it("targets the public bucket under a training/ prefix", async () => {
+  it("targets the private bucket under a training/ prefix", async () => {
     const { presignVideoUpload } = await r2();
     const { url, key } = await presignVideoUpload("video/mp4", 5_000_000);
     expect(key).toMatch(/^training\/[0-9a-f-]{36}\.mp4$/);
-    expect(url).toContain("media-public");
+    expect(url).toContain("amaris-private");
   });
 
   it("allows an hour, since 500MB on a slow line needs the room", async () => {
@@ -131,10 +129,43 @@ describe("presignCvDownload", () => {
   });
 });
 
-describe("videoUrl", () => {
-  it("joins the custom domain to the key without a double slash", async () => {
-    const { videoUrl } = await r2();
-    // The configured base URL above has a trailing slash on purpose.
-    expect(videoUrl("training/abc.mp4")).toBe("https://media.example.com/training/abc.mp4");
+describe("presignVideoView", () => {
+  it("signs a link into the private bucket — nothing is served publicly", async () => {
+    const { presignVideoView } = await r2();
+    const url = new URL(await presignVideoView("training/abc.mp4"));
+    // Virtual-hosted style: the bucket is the subdomain of the account endpoint.
+    expect(url.hostname).toBe("amaris-private.test-account.r2.cloudflarestorage.com");
+    expect(url.pathname).toBe("/training/abc.mp4");
+    expect(url.searchParams.get("X-Amz-Signature")).toBeTruthy();
+  });
+
+  it("lasts long enough to watch and seek through a module", async () => {
+    const { presignVideoView, VIDEO_VIEW_TTL_SECONDS } = await r2();
+    const url = new URL(await presignVideoView("training/abc.mp4"));
+    expect(url.searchParams.get("X-Amz-Expires")).toBe(String(VIDEO_VIEW_TTL_SECONDS));
+    expect(VIDEO_VIEW_TTL_SECONDS).toBeGreaterThanOrEqual(60 * 60);
+  });
+
+  it("pins the response type to the video type the key was issued for", async () => {
+    const { presignVideoView } = await r2();
+    const mov = new URL(await presignVideoView("training/abc.mov"));
+    expect(mov.searchParams.get("response-content-type")).toBe("video/quicktime");
+    const webm = new URL(await presignVideoView("training/abc.webm"));
+    expect(webm.searchParams.get("response-content-type")).toBe("video/webm");
+  });
+
+  it("refuses to sign anything that isn't a training video, such as a CV", async () => {
+    const { presignVideoView } = await r2();
+    await expect(presignVideoView("cv/abc.pdf")).rejects.toThrow(/training video/);
+    await expect(presignVideoView("training/abc.html")).rejects.toThrow(/training video/);
+  });
+});
+
+describe("videoLinkFor", () => {
+  it("returns null rather than throwing, so a page can show 'coming soon'", async () => {
+    const { videoLinkFor } = await r2();
+    expect(await videoLinkFor(null)).toBeNull();
+    expect(await videoLinkFor("cv/abc.pdf")).toBeNull();
+    expect(await videoLinkFor("training/abc.mp4")).toContain("training/abc.mp4");
   });
 });

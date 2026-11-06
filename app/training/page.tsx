@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { listTrainingModules, listTrainingProgress } from "@/lib/db/queries";
-import { isVideoStorageConfigured, videoUrl } from "@/lib/r2";
+import { videoLinkFor } from "@/lib/r2";
 import { TrainingView, type TrainingModuleView } from "@/components/member/training-view";
 
 export default async function TrainingPage() {
@@ -14,13 +14,16 @@ export default async function TrainingPage() {
     listTrainingModules(true),
     listTrainingProgress(user.id),
   ]);
-  const storageConfigured = isVideoStorageConfigured();
 
   // Modules unlock in sequence. Resolved here rather than in the client so the
   // gate the member sees matches the one recordTrainingProgressAction enforces.
   const completedIds = new Set(
     progress.filter((p) => p.completedAt).map((p) => p.moduleId)
   );
+
+  // Signed per page load, and only after the session check above: the link is
+  // the permission to watch, so it's only ever handed to a signed-in member.
+  const videoLinks = await Promise.all(modules.map((module) => videoLinkFor(module.videoKey)));
 
   const view: TrainingModuleView[] = modules.map((module, index) => {
     const own = progress.find((p) => p.moduleId === module.id);
@@ -34,9 +37,8 @@ export default async function TrainingPage() {
       position: module.position,
       title: module.title,
       description: module.description,
-      // videoUrl() throws when the public base URL is unset; a half-configured
-      // deploy should show "coming soon", not a 500.
-      videoUrl: module.videoKey && storageConfigured ? videoUrl(module.videoKey) : null,
+      // Null shows "coming soon" — no video yet, or storage not configured.
+      videoUrl: videoLinks[index],
       durationSeconds: module.videoDurationSeconds,
       questions: module.questions.map((q) => ({
         id: q.id,

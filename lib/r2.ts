@@ -7,12 +7,17 @@ import { randomUUID } from "node:crypto";
  * pointed at an R2 endpoint — which also means swapping to S3 later is a config
  * change rather than a rewrite.
  *
- * Two buckets, because R2 grants public access per bucket:
- *   - the private bucket holds CVs, and is only ever read through a short-lived
- *     presigned GET issued to an admin;
- *   - the public bucket holds training videos, served straight off a Cloudflare
- *     custom domain so the CDN can cache them and range requests (seeking) work
- *     without a presign round-trip per view.
+ * One private bucket, nothing in it ever public:
+ *   - CVs (cv/ prefix) are read only through a one-minute presigned GET issued
+ *     to an admin, forced to download;
+ *   - training videos (training/ prefix) are read through a presigned GET
+ *     minted each time a signed-in member or admin loads a training page.
+ *
+ * Videos were originally meant for a public bucket on a custom domain. That
+ * needs the domain's DNS on Cloudflare, which amarispartners.com's isn't — and
+ * the Terms of Use treat the training modules as confidential anyway, which a
+ * public URL anyone can share doesn't honour. A presigned URL still supports
+ * range requests, so seeking works; signing is a local HMAC, not a network call.
  *
  * Uploads never pass through our server. A Vercel serverless request body caps
  * at 4.5MB and a Server Action body defaults to 1MB — either would make video
@@ -25,9 +30,6 @@ const ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
 const ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
 const SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
 const PRIVATE_BUCKET = process.env.R2_BUCKET;
-const PUBLIC_BUCKET = process.env.R2_PUBLIC_BUCKET;
-// Custom domain bound to the public bucket, e.g. https://media.amarispartners.com
-const PUBLIC_BASE_URL = process.env.R2_PUBLIC_BASE_URL?.replace(/\/$/, "");
 
 // Built lazily and only when configured, mirroring lib/resend.ts: an unset key
 // must not break importing this module in an environment that doesn't use it.
@@ -51,7 +53,8 @@ export function isCvStorageConfigured(): boolean {
 }
 
 export function isVideoStorageConfigured(): boolean {
-  return Boolean(client && PUBLIC_BUCKET && PUBLIC_BASE_URL);
+  // Same bucket as CVs; kept as its own check so callers read for what they mean.
+  return Boolean(client && PRIVATE_BUCKET);
 }
 
 // ---------- Upload limits ----------
@@ -129,18 +132,18 @@ export async function presignCvUpload(
   return { url, key };
 }
 
-/** Presigns a training video upload into the public bucket. */
+/** Presigns a training video upload into the private bucket. */
 export async function presignVideoUpload(
   contentType: string,
   contentLength: number
 ): Promise<PresignedUpload> {
-  if (!PUBLIC_BUCKET) throw new Error("R2_PUBLIC_BUCKET is not configured.");
+  if (!PRIVATE_BUCKET) throw new Error("R2_BUCKET is not configured.");
   const extension = VIDEO_CONTENT_TYPES[contentType];
   if (!extension) throw new Error("Unsupported video file type.");
 
   const key = buildKey("training", extension);
   const url = await presignPut({
-    bucket: PUBLIC_BUCKET,
+    bucket: PRIVATE_BUCKET,
     key,
     contentType,
     contentLength,
@@ -170,15 +173,62 @@ export async function presignCvDownload(key: string, filename: string): Promise<
   );
 }
 
-/** Public CDN URL for a training video. */
-export function videoUrl(key: string): string {
-  if (!PUBLIC_BASE_URL) throw new Error("R2_PUBLIC_BASE_URL is not configured.");
-  return `${PUBLIC_BASE_URL}/${key}`;
+/**
+ * How long a video link stays valid. Long enough to watch a module and come
+ * back to it later in the same sitting — seeking re-requests the same URL, so
+ * a link that expired mid-video would break the scrubber. A reload mints a new
+ * one.
+ */
+export const VIDEO_VIEW_TTL_SECONDS = 6 * 60 * 60;
+
+/** The MIME type a training video is served as, from its key's extension. */
+function videoTypeForKey(key: string): string {
+  const extension = key.slice(key.lastIndexOf(".") + 1);
+  const type = Object.entries(VIDEO_CONTENT_TYPES).find(([, ext]) => ext === extension)?.[0];
+  if (!key.startsWith("training/") || !type) {
+    throw new Error("Not a training video key.");
+  }
+  return type;
+}
+
+/**
+ * A time-limited link to watch a training video. Only call this for someone
+ * already authorised to see the page it's rendered on — the link itself is the
+ * permission.
+ *
+ * The response type is pinned to the video type the key was issued for, so
+ * whatever bytes are stored, the browser is told it's a video.
+ */
+export async function presignVideoView(key: string): Promise<string> {
+  if (!client || !PRIVATE_BUCKET) throw new Error("R2 is not configured.");
+  return getSignedUrl(
+    client,
+    new GetObjectCommand({
+      Bucket: PRIVATE_BUCKET,
+      Key: key,
+      ResponseContentType: videoTypeForKey(key),
+    }),
+    { expiresIn: VIDEO_VIEW_TTL_SECONDS }
+  );
+}
+
+/**
+ * A watch link for a module's video, or null when there's nothing to show —
+ * no video yet, storage unconfigured, or a key that can't be signed. Pages
+ * render null as "coming soon"; a half-configured deploy must not 500.
+ */
+export async function videoLinkFor(key: string | null): Promise<string | null> {
+  if (!key || !isVideoStorageConfigured()) return null;
+  try {
+    return await presignVideoView(key);
+  } catch (error) {
+    console.error("Could not sign a training video link:", error);
+    return null;
+  }
 }
 
 /** Best-effort cleanup when a stored object is replaced or its row is removed. */
-export async function deleteObject(bucket: "private" | "public", key: string): Promise<void> {
-  const target = bucket === "private" ? PRIVATE_BUCKET : PUBLIC_BUCKET;
-  if (!client || !target) return;
-  await client.send(new DeleteObjectCommand({ Bucket: target, Key: key }));
+export async function deleteObject(key: string): Promise<void> {
+  if (!client || !PRIVATE_BUCKET) return;
+  await client.send(new DeleteObjectCommand({ Bucket: PRIVATE_BUCKET, Key: key }));
 }

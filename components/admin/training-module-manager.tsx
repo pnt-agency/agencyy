@@ -158,9 +158,11 @@ export function TrainingModuleManager({
             Video storage isn&apos;t configured.
           </p>
           <p className="text-sm text-red-800 mt-1">
-            Set <code className="text-xs">R2_PUBLIC_BUCKET</code> and{" "}
-            <code className="text-xs">R2_PUBLIC_BASE_URL</code> (plus the R2 credentials) before
-            uploading. Until then, uploads here will fail.
+            Set <code className="text-xs">R2_ACCOUNT_ID</code>,{" "}
+            <code className="text-xs">R2_ACCESS_KEY_ID</code>,{" "}
+            <code className="text-xs">R2_SECRET_ACCESS_KEY</code> and{" "}
+            <code className="text-xs">R2_BUCKET</code> before uploading. Until then, uploads here
+            will fail.
           </p>
         </div>
       )}

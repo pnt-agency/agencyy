@@ -160,7 +160,7 @@ export async function attachModuleVideoAction(
       // Best-effort: an orphaned object costs pennies, a failed action costs
       // the admin their work.
       try {
-        await deleteObject("public", trainingModule.videoKey);
+        await deleteObject(trainingModule.videoKey);
       } catch (error) {
         console.warn("Could not delete replaced training video:", error);
       }
