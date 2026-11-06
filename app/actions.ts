@@ -8,21 +8,96 @@ import { getAdminAccount, getCurrentUser } from "@/lib/auth";
 import { recordAudit, AUDIT_ACTIONS, AUDIT_TARGETS } from "@/lib/audit";
 import { talentInputSchema, employerInputSchema, expressInterestSchema } from "@/lib/validation";
 import { isAssignableAccountRole } from "@/lib/roles";
+import { screenSubmission, type AntiBotFields } from "@/lib/anti-bot";
+import { RATE_LIMITS } from "@/lib/rate-limit";
 import { revalidatePath } from "next/cache";
+
+/**
+ * Whether it's safe to send a confirmation email to the address typed into a
+ * public form.
+ *
+ * This is the check that closes the abuse these forms were being used for. The
+ * submit actions used to email the submitted address unconditionally, which
+ * turned both forms into an open relay: a bot posted a stranger's address
+ * hundreds of times and this app delivered branded mail to them, at real cost
+ * to the sending domain's reputation. Several of the addresses in the observed
+ * spam were SMS gateways, so the victims were receiving text messages.
+ *
+ * So an address gets mail only when one of two things is true:
+ *
+ * - **Turnstile ran and passed.** Something has established a human is behind
+ *   the request. Note this is false while Turnstile is unconfigured, which
+ *   means confirmations stay off until the keys are in place — deliberately,
+ *   since that is exactly the window in which the relay is cheapest to abuse.
+ * - **The submitter is signed in and used their own address.** Emailing
+ *   somebody their own address at their own request is not a relay.
+ *
+ * Everyone else still gets their submission stored and the admin team still
+ * gets notified — they just don't trigger outbound mail to an unproven address.
+ */
+function mayEmailSubmittedAddress(
+  screen: { captchaVerified: boolean },
+  submitterEmail: string | null | undefined,
+  submittedEmail: string
+): boolean {
+  if (screen.captchaVerified) return true;
+  if (!submitterEmail) return false;
+  return submitterEmail.trim().toLowerCase() === submittedEmail.trim().toLowerCase();
+}
+
+/**
+ * Sends the two emails a new lead produces, without letting either failure
+ * fail the submission — the record is already saved by this point, and
+ * reporting failure for work that succeeded would be worse than a missing mail.
+ *
+ * `confirmation` is null when the submitted address hasn't earned outbound mail.
+ */
+async function sendLeadEmails({
+  context,
+  confirmation,
+  adminNotification,
+}: {
+  context: string;
+  confirmation: (() => Promise<unknown>) | null;
+  adminNotification: () => Promise<unknown>;
+}): Promise<void> {
+  const [confirmationResult, notificationResult] = await Promise.allSettled([
+    confirmation ? confirmation() : Promise.resolve(null),
+    adminNotification(),
+  ]);
+  if (confirmationResult.status === "rejected") {
+    console.warn(`Confirmation email could not be sent (${context}):`, confirmationResult.reason);
+  }
+  if (notificationResult.status === "rejected") {
+    console.warn(`Admin notification could not be sent (${context}):`, notificationResult.reason);
+  }
+}
 
 export async function submitTalentApplication(
   data: Omit<Talent, "id" | "status" | "createdAt"> & {
     cv?: { key: string; filename: string; size: number; contentType: string } | null;
-  }
+  },
+  antiBot: AntiBotFields = {}
 ) {
-  // 0. Re-validate on the server — this action is a public endpoint and cannot
+  // 0. Prove the caller is plausibly a person before doing any work for them.
+  // See lib/anti-bot.ts for what each layer covers.
+  const screen = await screenSubmission(
+    RATE_LIMITS.TALENT_APPLICATION,
+    antiBot,
+    "talent application"
+  );
+  if (!screen.ok) {
+    return { success: false, error: screen.error };
+  }
+
+  // 1. Re-validate on the server — this action is a public endpoint and cannot
   // trust that the client ran its own validation.
   const parsed = talentInputSchema.safeParse(data);
   if (!parsed.success) {
     return { success: false, error: "Invalid application. Please check your entries and try again." };
   }
 
-  // 0b. Reject rapid duplicate submissions from the same email.
+  // 1b. Reject rapid duplicate submissions from the same email.
   if (await hasRecentTalentSubmission(parsed.data.email)) {
     return { success: false, error: "We already received an application from this email. Please wait a few minutes before submitting again." };
   }
@@ -32,25 +107,23 @@ export async function submitTalentApplication(
   const submitter = await getCurrentUser();
 
   try {
-    // 1. Create database record (critical — fail if this fails)
+    // 2. Create database record (critical — fail if this fails)
     await createTalentRecord(parsed.data, submitter?.id ?? null, parsed.data.cv ?? null);
   } catch (error) {
     console.error("Error saving talent application:", error);
     return { success: false, error: "Failed to submit application. Please try again." };
   }
 
-  // 2. Send emails (non-critical — log but don't fail). Notify the applicant
-  // and the internal team; either failing must not fail the submission.
-  const [confirmation, notification] = await Promise.allSettled([
-    sendTalentConfirmationEmail(parsed.data.email, parsed.data.name),
-    sendAdminTalentNotification(parsed.data),
-  ]);
-  if (confirmation.status === "rejected") {
-    console.warn("Confirmation email could not be sent:", confirmation.reason);
-  }
-  if (notification.status === "rejected") {
-    console.warn("Admin notification could not be sent:", notification.reason);
-  }
+  // 3. Send emails (non-critical — log but don't fail).
+  await sendLeadEmails({
+    context: "talent application",
+    // Only mail the submitted address once something has established a human is
+    // behind the request — see mayEmailSubmittedAddress.
+    confirmation: mayEmailSubmittedAddress(screen, submitter?.email, parsed.data.email)
+      ? () => sendTalentConfirmationEmail(parsed.data.email, parsed.data.name)
+      : null,
+    adminNotification: () => sendAdminTalentNotification(parsed.data),
+  });
 
   return { success: true };
 }
@@ -454,14 +527,27 @@ export async function updateEmployerDetails(id: string, patch: MetaPatch) {
   }
 }
 
-export async function submitEmployerInquiry(data: Omit<Employer, "id" | "status" | "createdAt">) {
-  // 0. Re-validate on the server — public endpoint, untrusted input.
+export async function submitEmployerInquiry(
+  data: Omit<Employer, "id" | "status" | "createdAt">,
+  antiBot: AntiBotFields = {}
+) {
+  // 0. The gate. This form is the one the spam campaign targeted.
+  const screen = await screenSubmission(
+    RATE_LIMITS.EMPLOYER_INQUIRY,
+    antiBot,
+    "employer inquiry"
+  );
+  if (!screen.ok) {
+    return { success: false, error: screen.error };
+  }
+
+  // 1. Re-validate on the server — public endpoint, untrusted input.
   const parsed = employerInputSchema.safeParse(data);
   if (!parsed.success) {
     return { success: false, error: "Invalid inquiry. Please check your entries and try again." };
   }
 
-  // 0b. Reject rapid duplicate submissions from the same email.
+  // 1b. Reject rapid duplicate submissions from the same email.
   if (await hasRecentEmployerSubmission(parsed.data.email)) {
     return { success: false, error: "We already received an inquiry from this email. Please wait a few minutes before submitting again." };
   }
@@ -470,25 +556,21 @@ export async function submitEmployerInquiry(data: Omit<Employer, "id" | "status"
   const submitter = await getCurrentUser();
 
   try {
-    // 1. Create database record (critical — fail if this fails)
+    // 2. Create database record (critical — fail if this fails)
     await createEmployerRecord(parsed.data, submitter?.id ?? null);
   } catch (error) {
     console.error("Error saving employer inquiry:", error);
     return { success: false, error: "Failed to submit inquiry. Please try again." };
   }
 
-  // 2. Send emails (non-critical — log but don't fail). Notify the inquirer
-  // and the internal team; either failing must not fail the submission.
-  const [confirmation, notification] = await Promise.allSettled([
-    sendEmployerConfirmationEmail(parsed.data.email, parsed.data.contactName),
-    sendAdminEmployerNotification(parsed.data),
-  ]);
-  if (confirmation.status === "rejected") {
-    console.warn("Confirmation email could not be sent:", confirmation.reason);
-  }
-  if (notification.status === "rejected") {
-    console.warn("Admin notification could not be sent:", notification.reason);
-  }
+  // 3. Send emails (non-critical — log but don't fail).
+  await sendLeadEmails({
+    context: "employer inquiry",
+    confirmation: mayEmailSubmittedAddress(screen, submitter?.email, parsed.data.email)
+      ? () => sendEmployerConfirmationEmail(parsed.data.email, parsed.data.contactName)
+      : null,
+    adminNotification: () => sendAdminEmployerNotification(parsed.data),
+  });
 
   return { success: true };
 }

@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2 } from "lucide-react";
 import { FileUpload, type UploadedFile } from "@/components/ui/file-upload";
 import { presignCvUploadAction } from "@/app/upload-actions";
+import { useAntiBot, HoneypotField, TurnstileWidget } from "@/components/ui/anti-bot";
 
 const applySchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -41,6 +42,7 @@ export default function ApplyPage() {
   // The file is already in R2 by the time the form is submitted — this holds
   // the key to attach to the application row.
   const [cv, setCv] = useState<UploadedFile | null>(null);
+  const antiBot = useAntiBot();
 
   const {
     register,
@@ -55,26 +57,31 @@ export default function ApplyPage() {
     setSubmitError(null);
 
     const { submitTalentApplication } = await import('@/app/actions');
-    const result = await submitTalentApplication({
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      country: data.country,
-      role: data.role,
-      experience: data.experience,
-      portfolio: data.portfolio,
-      bio: data.bio,
-      whyJoin: data.whyJoin,
-      cvLink: data.cvLink || "",
-      cv: cv
-        ? { key: cv.key, filename: cv.filename, size: cv.size, contentType: cv.contentType }
-        : null,
-    });
+    const result = await submitTalentApplication(
+      {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        country: data.country,
+        role: data.role,
+        experience: data.experience,
+        portfolio: data.portfolio,
+        bio: data.bio,
+        whyJoin: data.whyJoin,
+        cvLink: data.cvLink || "",
+        cv: cv
+          ? { key: cv.key, filename: cv.filename, size: cv.size, contentType: cv.contentType }
+          : null,
+      },
+      antiBot.fields
+    );
 
     setIsSubmitting(false);
     if (result.success) {
       setIsSuccess(true);
     } else {
+      // See the hire form: the spent Turnstile token can't be reused.
+      antiBot.reset();
       setSubmitError(result.error ?? "Something went wrong. Please try again.");
     }
   };
@@ -105,7 +112,8 @@ export default function ApplyPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={handleSubmit(onSubmit)} className="relative space-y-6">
+            <HoneypotField {...antiBot.honeypot} />
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label htmlFor="name" className="text-sm font-medium text-black">Full Name *</label>
@@ -245,13 +253,20 @@ export default function ApplyPage() {
               </div>
             </div>
 
+            <TurnstileWidget {...antiBot.turnstile} />
+
             {submitError && (
               <p role="alert" className="text-red-600 text-sm text-center">
                 {submitError}
               </p>
             )}
 
-            <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full"
+              disabled={isSubmitting || !antiBot.ready}
+            >
               {isSubmitting ? "Submitting..." : "Submit Application"}
             </Button>
           </form>

@@ -1,4 +1,4 @@
-import { eq, desc, and, or, gte, count, sql, ilike, isNull, isNotNull, inArray } from "drizzle-orm";
+import { eq, desc, and, or, gte, lt, count, sql, ilike, isNull, isNotNull, inArray } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from ".";
 import {
@@ -14,6 +14,7 @@ import {
   trainingModules,
   trainingQuestions,
   trainingProgress,
+  rateLimits,
   type TalentRow,
   type EmployerRow,
   type UserRow,
@@ -795,6 +796,33 @@ export async function countCompletedModules(userId: string): Promise<number> {
     .from(trainingProgress)
     .where(and(eq(trainingProgress.userId, userId), isNotNull(trainingProgress.completedAt)));
   return row?.n ?? 0;
+}
+
+// ---------- Rate limiting ----------
+
+/**
+ * Counts one request against a (bucket, window) pair and returns the new total.
+ *
+ * A single statement on purpose. Read-then-write would let two concurrent
+ * requests both see the count below the limit and both proceed — precisely the
+ * case a limiter exists to stop, and precisely what a bot generates. The unique
+ * index on (bucket, window_start) is what the conflict target resolves against.
+ */
+export async function incrementRateLimit(bucket: string, windowStart: Date): Promise<number> {
+  const [row] = await db
+    .insert(rateLimits)
+    .values({ bucket, windowStart, count: 1 })
+    .onConflictDoUpdate({
+      target: [rateLimits.bucket, rateLimits.windowStart],
+      set: { count: sql`${rateLimits.count} + 1` },
+    })
+    .returning({ count: rateLimits.count });
+  return row?.count ?? 1;
+}
+
+/** Drops counter rows whose window has passed. Housekeeping only. */
+export async function deleteExpiredRateLimits(before: Date): Promise<void> {
+  await db.delete(rateLimits).where(lt(rateLimits.windowStart, before));
 }
 
 // ---------- CV files ----------

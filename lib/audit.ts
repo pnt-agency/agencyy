@@ -1,4 +1,4 @@
-import { headers } from "next/headers";
+import { clientIp, clientUserAgent } from "./client-ip";
 import { insertAuditLog } from "./db/queries";
 import type { UserRow } from "./db/schema";
 
@@ -46,21 +46,13 @@ type AuditEntry = {
   after?: Record<string, unknown> | null;
 };
 
-// Vercel puts the client address in x-forwarded-for as a comma-separated chain;
-// the first entry is the original client.
+// Both helpers already return null outside a request scope (a script, a
+// background job), which is the right outcome here: the action is still worth
+// logging, just without the context. See lib/client-ip.ts for why the IP is
+// read the way it is.
 async function requestContext(): Promise<{ ip: string | null; userAgent: string | null }> {
-  try {
-    const h = await headers();
-    const forwarded = h.get("x-forwarded-for");
-    return {
-      ip: forwarded?.split(",")[0]?.trim() || h.get("x-real-ip") || null,
-      userAgent: h.get("user-agent"),
-    };
-  } catch {
-    // Outside a request scope (a script, a background job) there are no headers
-    // to read. Worth logging the action anyway, just without the context.
-    return { ip: null, userAgent: null };
-  }
+  const [ip, userAgent] = await Promise.all([clientIp(), clientUserAgent()]);
+  return { ip, userAgent };
 }
 
 /**

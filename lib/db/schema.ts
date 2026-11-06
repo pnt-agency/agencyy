@@ -326,6 +326,37 @@ export const auditLogs = pgTable(
   ]
 );
 
+// ---------- Abuse control ----------
+
+/**
+ * Request counters for the IP rate limiter (see lib/rate-limit.ts).
+ *
+ * One row per (bucket, window): the bucket names what is being limited and who
+ * by ("hire:1.2.3.4"), the window is the start of the fixed time slice the
+ * count belongs to. Rows are disposable — anything older than its window is
+ * dead weight, swept opportunistically rather than kept.
+ *
+ * Postgres rather than Redis because this app already has Postgres and the
+ * volumes involved (a handful of public forms) are nowhere near needing a
+ * dedicated store. The unique index is what makes the counter atomic: the
+ * increment is a single INSERT ... ON CONFLICT DO UPDATE, so two concurrent
+ * requests can't both read 4 and both write 5.
+ */
+export const rateLimits = pgTable(
+  "rate_limits",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    bucket: text("bucket").notNull(),
+    windowStart: timestamp("window_start", { withTimezone: true }).notNull(),
+    count: integer("count").notNull().default(1),
+  },
+  (table) => [
+    uniqueIndex("rate_limits_bucket_window_idx").on(table.bucket, table.windowStart),
+    // Supports the sweep of expired windows.
+    index("rate_limits_window_idx").on(table.windowStart),
+  ]
+);
+
 export type TalentRow = typeof talents.$inferSelect;
 export type NewTalentRow = typeof talents.$inferInsert;
 export type EmployerRow = typeof employers.$inferSelect;
@@ -349,3 +380,4 @@ export type NewTrainingModuleRow = typeof trainingModules.$inferInsert;
 export type TrainingQuestionRow = typeof trainingQuestions.$inferSelect;
 export type NewTrainingQuestionRow = typeof trainingQuestions.$inferInsert;
 export type TrainingProgressRow = typeof trainingProgress.$inferSelect;
+export type RateLimitRow = typeof rateLimits.$inferSelect;

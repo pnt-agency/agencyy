@@ -35,6 +35,7 @@ import {
   RESET_PASSWORD,
 } from "@/lib/tokens";
 import { sendVerificationEmail, sendPasswordResetEmail, sendWelcomeEmail } from "@/lib/resend";
+import { checkIpRateLimit, rateLimitMessage, RATE_LIMITS } from "@/lib/rate-limit";
 
 type ActionResult =
   | { success: true }
@@ -64,6 +65,13 @@ function orNull(value: string | undefined): string | null {
  * role. The client follows a successful result with a credentials signIn().
  */
 export async function registerMember(data: unknown): Promise<ActionResult> {
+  // Creating an account sends a verification email to an address the caller
+  // chose, so this is an outbound-mail endpoint too and gets the same cap.
+  const limit = await checkIpRateLimit(RATE_LIMITS.REGISTER);
+  if (!limit.allowed) {
+    return { success: false, error: rateLimitMessage(limit) };
+  }
+
   const parsed = registerMemberSchema.safeParse(data);
   if (!parsed.success) {
     // A rejected password is worth naming ("at least 8 characters") — the form
@@ -287,11 +295,27 @@ export async function deleteMyAccount(input: unknown): Promise<ActionResult> {
 
 // ---------- Password reset ----------
 
+/**
+ * Emails a reset link, if the address belongs to a password account.
+ *
+ * Rate limited per IP, because every allowed call sends mail to an address the
+ * caller names — the exact mechanism of an email-bombing campaign, and one an
+ * attacker can point at any address they know has an account here.
+ *
+ * A limited caller is dropped *silently*, still receiving the same success
+ * result as everyone else. That preserves this endpoint's one real security
+ * property: it answers identically no matter what you ask it, so it can't be
+ * used to work out which addresses have accounts. Surfacing a distinct "you've
+ * been rate limited" would be friendlier to the roughly nobody who legitimately
+ * requests six resets in an hour, at the cost of adding a second observable
+ * response to an endpoint whose whole design is to have exactly one.
+ */
 export async function requestPasswordReset(input: unknown): Promise<ActionResult> {
   const parsed = requestResetSchema.safeParse(input);
+  const limit = await checkIpRateLimit(RATE_LIMITS.PASSWORD_RESET);
   // Always return the same result regardless of whether the email exists, so
   // this endpoint can't be used to enumerate accounts.
-  if (parsed.success) {
+  if (parsed.success && limit.allowed) {
     const user = await getUserByEmail(parsed.data.email);
     // Only password accounts can reset (Google-only users have no passwordHash).
     if (user?.passwordHash) {
@@ -311,6 +335,8 @@ export async function requestPasswordReset(input: unknown): Promise<ActionResult
         console.error("Error sending password reset email:", error);
       }
     }
+  } else if (parsed.success && !limit.allowed) {
+    console.warn("[anti-bot] password reset request dropped: rate limited");
   }
   return { success: true };
 }

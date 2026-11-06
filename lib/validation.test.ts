@@ -86,7 +86,10 @@ describe("public lead schemas", () => {
   it("coerces employer numberNeeded and enforces a minimum", () => {
     const base = {
       companyName: "Acme", contactName: "Jo", email: "jo@acme.com", phone: "12345",
-      country: "US", roleNeeded: "VA", budget: "$1k", startDate: "2026-01-01",
+      country: "US", roleNeeded: "VA", budget: "$1k",
+      // Relative, not fixed: startDate is now bounded to a window around today,
+      // so a hardcoded date silently becomes invalid as the suite ages.
+      startDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
     };
     expect(employerInputSchema.parse({ ...base, numberNeeded: "3" }).numberNeeded).toBe(3);
     expect(employerInputSchema.safeParse({ ...base, numberNeeded: 0 }).success).toBe(false);

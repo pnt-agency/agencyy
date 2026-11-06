@@ -71,6 +71,13 @@
       "when": 1785283788005,
       "tag": "0009_seed_training_modules",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785882013149,
+      "tag": "0010_cuddly_bromley",
+      "breakpoints": true
     }
   ]
 }

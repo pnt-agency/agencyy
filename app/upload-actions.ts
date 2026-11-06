@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getAdminAccount, getCurrentUser } from "@/lib/auth";
 import { recordAudit, AUDIT_ACTIONS, AUDIT_TARGETS } from "@/lib/audit";
+import { checkIpRateLimit, rateLimitMessage, RATE_LIMITS } from "@/lib/rate-limit";
 import {
   presignCvUpload,
   presignVideoUpload,
@@ -65,6 +66,13 @@ function validateUpload(
  * Deliberately unauthenticated — people apply before they have an account. The
  * exposure is bounded by what's signed in: a single object, of a pinned type
  * and exact size, under a key the server chose, valid for five minutes.
+ *
+ * What that bound does *not* cover is volume. Each call is cheap and legitimate
+ * in isolation, but nothing stopped a script from requesting them in a loop and
+ * filling the bucket 10MB at a time — an unauthenticated write to paid storage.
+ * The rate limit below caps that. It's per-IP, so it bounds cost rather than
+ * preventing abuse outright; the objects themselves stay private and unreachable
+ * without an admin-issued download link.
  */
 export async function presignCvUploadAction(
   contentType: string,
@@ -72,6 +80,11 @@ export async function presignCvUploadAction(
 ): Promise<PresignResult> {
   if (!isCvStorageConfigured()) {
     return { success: false, error: "File uploads aren't available right now." };
+  }
+
+  const limit = await checkIpRateLimit(RATE_LIMITS.CV_PRESIGN);
+  if (!limit.allowed) {
+    return { success: false, error: rateLimitMessage(limit) };
   }
   const problem = validateUpload(contentType, contentLength, CV_CONTENT_TYPES, CV_MAX_BYTES, "CV");
   if (problem) return { success: false, error: problem };

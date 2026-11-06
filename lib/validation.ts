@@ -48,6 +48,47 @@ export const talentInputSchema = z.object({
     .optional(),
 });
 
+/**
+ * A calendar date (YYYY-MM-DD) that could plausibly be a hiring start date.
+ *
+ * The previous rule here was `z.string().min(1).max(40)` — any non-empty string
+ * at all. That is how every spam submission carried a start date of
+ * 1970-05-31: the bot posted random digits, nothing ever parsed them as a date,
+ * and they landed in the database as-is.
+ *
+ * The bounds are wide on purpose. A little in the past covers timezone skew and
+ * someone who wants to backdate a start; five years ahead is past any real
+ * planning horizon. This is a data-quality rule that happens to reject the
+ * observed bot payload — it is not a bot check, and a bot that sends a
+ * well-formed date passes it.
+ */
+const PAST_TOLERANCE_DAYS = 7;
+const FUTURE_LIMIT_YEARS = 5;
+
+/**
+ * Exported so the spam cleanup script can identify existing rows by the same
+ * rule that now rejects them at the door, rather than hard-coding the one bad
+ * date the observed bot happened to produce.
+ */
+export function isPlausibleStartDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+
+  const parsed = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return false;
+  // Catches inputs the regex accepts but the calendar does not, e.g.
+  // 2026-02-31, which Date rolls forward to March rather than rejecting.
+  if (parsed.toISOString().slice(0, 10) !== value) return false;
+
+  const earliest = Date.now() - PAST_TOLERANCE_DAYS * 24 * 60 * 60 * 1000;
+  const latest = Date.UTC(new Date().getUTCFullYear() + FUTURE_LIMIT_YEARS, 11, 31);
+  return parsed.getTime() >= earliest && parsed.getTime() <= latest;
+}
+
+const startDateField = z
+  .string()
+  .trim()
+  .refine(isPlausibleStartDate, "Please provide a valid start date");
+
 export const employerInputSchema = z.object({
   companyName: z.string().trim().min(2, "Company name is required").max(160),
   contactName: z.string().trim().min(2, "Contact name is required").max(120),
@@ -61,7 +102,7 @@ export const employerInputSchema = z.object({
     .min(1, "Must need at least 1 person")
     .max(10000),
   budget: z.string().trim().min(1, "Budget is required").max(80),
-  startDate: z.string().trim().min(1, "Start date is required").max(40),
+  startDate: startDateField,
   requirements: z.string().trim().max(5000).optional().or(z.literal("")),
 });
 

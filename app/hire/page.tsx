@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2 } from "lucide-react";
+import { useAntiBot, HoneypotField, TurnstileWidget } from "@/components/ui/anti-bot";
 
 const hireSchema = z.object({
   companyName: z.string().min(2, "Company name is required"),
@@ -16,7 +17,16 @@ const hireSchema = z.object({
   roleNeeded: z.string().min(1, "Please select a role"),
   numberNeeded: z.coerce.number().min(1, "Must need at least 1 person"),
   budget: z.string().min(1, "Please select a budget range"),
-  startDate: z.string().min(1, "Start date is required"),
+  // Mirrors the server rule in lib/validation.ts. The server is authoritative;
+  // this is here so a mistyped date is caught before a round trip.
+  startDate: z
+    .string()
+    .min(1, "Start date is required")
+    .refine((value) => {
+      const parsed = new Date(`${value}T00:00:00Z`);
+      if (Number.isNaN(parsed.getTime())) return false;
+      return parsed.getTime() >= Date.now() - 7 * 24 * 60 * 60 * 1000;
+    }, "Please choose a start date that isn't in the past"),
   requirements: z.string().optional(),
 });
 
@@ -44,6 +54,7 @@ export default function HirePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const antiBot = useAntiBot();
 
   const {
     register,
@@ -60,23 +71,29 @@ export default function HirePage() {
     setSubmitError(null);
 
     const { submitEmployerInquiry } = await import('@/app/actions');
-    const result = await submitEmployerInquiry({
-      companyName: data.companyName,
-      contactName: data.contactName,
-      email: data.email,
-      phone: data.phone,
-      country: data.country,
-      roleNeeded: data.roleNeeded,
-      numberNeeded: data.numberNeeded,
-      budget: data.budget,
-      startDate: data.startDate,
-      requirements: data.requirements,
-    });
-    
+    const result = await submitEmployerInquiry(
+      {
+        companyName: data.companyName,
+        contactName: data.contactName,
+        email: data.email,
+        phone: data.phone,
+        country: data.country,
+        roleNeeded: data.roleNeeded,
+        numberNeeded: data.numberNeeded,
+        budget: data.budget,
+        startDate: data.startDate,
+        requirements: data.requirements,
+      },
+      antiBot.fields
+    );
+
     setIsSubmitting(false);
     if (result.success) {
       setIsSuccess(true);
     } else {
+      // The Turnstile token just spent is single-use, so a retry needs a fresh
+      // challenge — without this reset the second attempt always fails.
+      antiBot.reset();
       setSubmitError(result.error ?? "Something went wrong. Please try again.");
     }
   };
@@ -107,7 +124,8 @@ export default function HirePage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={handleSubmit(onSubmit)} className="relative space-y-6">
+            <HoneypotField {...antiBot.honeypot} />
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <label htmlFor="companyName" className="text-sm font-medium text-black">Company Name *</label>
@@ -229,13 +247,20 @@ export default function HirePage() {
               />
             </div>
 
+            <TurnstileWidget {...antiBot.turnstile} />
+
             {submitError && (
               <p role="alert" className="text-red-600 text-sm text-center">
                 {submitError}
               </p>
             )}
 
-            <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full"
+              disabled={isSubmitting || !antiBot.ready}
+            >
               {isSubmitting ? "Submitting..." : "Submit Inquiry"}
             </Button>
           </form>
