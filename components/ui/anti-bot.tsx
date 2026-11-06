@@ -22,8 +22,21 @@ import { TurnstileWidget, isTurnstileEnabled } from "./turnstile-widget";
  * commonly skip fields that are hidden that way, and so do some password
  * managers, which would be worse. Off-screen positioning keeps it in the
  * layout and in the DOM while making it unreachable in practice: screen
- * readers skip it via aria-hidden, keyboards skip it via tabIndex, and
- * autoComplete is off so a browser never fills it on a real user's behalf.
+ * readers skip it via aria-hidden and keyboards skip it via tabIndex.
+ *
+ * ## Autofill is the real false-positive risk
+ *
+ * `autoComplete="off"` does *not* keep browsers out. Chrome ignores it when
+ * filling a saved address profile, and it classifies fields by matching their
+ * name, id and label against keywords, and password managers do the same.
+ * This field was originally called `company-website`, and a real person's
+ * /hire submission was rejected as "honeypot filled" — almost certainly
+ * autofill matching "company" or "website".
+ *
+ * So the name, id and label must contain nothing autofill recognises: no
+ * company/organisation, name, email, phone, address, url/website, etc. The
+ * cost is that it no longer looks tempting to a bot skimming field names, but
+ * the bots this catches fill every field regardless.
  */
 export function HoneypotField({
   value,
@@ -34,12 +47,12 @@ export function HoneypotField({
 }) {
   return (
     <div aria-hidden="true" className="absolute left-[-9999px] top-0 h-0 w-0 overflow-hidden">
-      <label htmlFor="company-website">Leave this field empty</label>
+      <label htmlFor="form-ref">Leave this field empty</label>
       <input
-        id="company-website"
-        // Named to look worth filling in to a bot skimming the field names,
-        // rather than announcing itself as a trap.
-        name="company-website"
+        id="form-ref"
+        // Deliberately meaningless to autofill — see the note above before
+        // renaming this.
+        name="form-ref"
         type="text"
         tabIndex={-1}
         autoComplete="off"
