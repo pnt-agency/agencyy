@@ -1,9 +1,9 @@
-import { NextAuthOptions, type Session } from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
+import type { NextAuthConfig, Session } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider, { type GoogleProfile } from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 import { eq, and, isNull } from "drizzle-orm";
-import { getServerSession } from "next-auth/next";
 import { db } from "./db";
 import { users, type UserRow } from "./db/schema";
 import { softDeleteUser } from "./db/queries";
@@ -23,7 +23,27 @@ if (process.env.NODE_ENV === "production" && !process.env.NEXTAUTH_SECRET) {
 // (softDeleteUser rewrites it to a tombstone, freeing the address for reuse).
 const activeUser = isNull(users.deletedAt);
 
-const providers: NextAuthOptions["providers"] = [
+// Two-step verification signals are surfaced as Auth.js `CredentialsSignin`
+// subclasses rather than generic Errors. A thrown AuthError is re-thrown by the
+// callback route (instead of being swallowed into a redirect to the error
+// page), so `credentialsSignIn()` in app/auth-actions.ts can read its `code`
+// and hand it back to the form. The `code` is what appears in the redirect
+// URL on the built-in sign-in page, so it carries no secret — it is just a
+// machine-readable key the client already knows from lib/two-step-shared.ts.
+class TwoStepRequired extends CredentialsSignin {
+  code = TWO_STEP_ERRORS.REQUIRED;
+}
+class TwoStepInvalid extends CredentialsSignin {
+  code = TWO_STEP_ERRORS.INVALID;
+}
+class TwoStepRateLimited extends CredentialsSignin {
+  code = TWO_STEP_ERRORS.RATE_LIMITED;
+}
+class TwoStepSendFailed extends CredentialsSignin {
+  code = TWO_STEP_ERRORS.SEND_FAILED;
+}
+
+const providers: NextAuthConfig["providers"] = [
   CredentialsProvider({
     name: "Credentials",
     credentials: {
@@ -33,11 +53,16 @@ const providers: NextAuthOptions["providers"] = [
       passcode: { label: "Sign-in code", type: "text" },
     },
     async authorize(credentials) {
-      if (!credentials?.email || !credentials?.password) {
+      // Auth.js hands credentials in as `unknown`, so narrow before use.
+      const email =
+        typeof credentials?.email === "string" ? credentials.email.trim().toLowerCase() : "";
+      const password = typeof credentials?.password === "string" ? credentials.password : "";
+      const passcode = typeof credentials?.passcode === "string" ? credentials.passcode : undefined;
+
+      if (!email || !password) {
         return null;
       }
 
-      const email = credentials.email.trim().toLowerCase();
       const [user] = await db
         .select()
         .from(users)
@@ -47,7 +72,7 @@ const providers: NextAuthOptions["providers"] = [
         return null;
       }
 
-      const isValid = await bcrypt.compare(credentials.password, user.passwordHash);
+      const isValid = await bcrypt.compare(password, user.passwordHash);
       if (!isValid) {
         return null;
       }
@@ -56,21 +81,20 @@ const providers: NextAuthOptions["providers"] = [
       // checked out, so none of these distinct errors tell a caller anything
       // about an account whose password they don't already have.
       //
-      // The flow is two calls to signIn() with the same email and password:
-      // the first (no code) emails one and throws REQUIRED, which NextAuth
-      // surfaces as result.error so the form can ask for it; the second
-      // carries the code. The password is re-checked both times, so the code
-      // alone is never enough.
+      // The flow is two calls to credentialsSignIn() with the same email and
+      // password: the first (no code) emails one and throws REQUIRED, which the
+      // form surfaces as a request for the code; the second carries the code.
+      // The password is re-checked both times, so the code alone is never enough.
       if (user.twoStepEnabledAt) {
-        if (!credentials.passcode) {
+        if (!passcode) {
           const issued = await issueTwoStepCode(user, SIGN_IN_CODE);
-          if (issued === "rate_limited") throw new Error(TWO_STEP_ERRORS.RATE_LIMITED);
-          if (issued === "send_failed") throw new Error(TWO_STEP_ERRORS.SEND_FAILED);
-          throw new Error(TWO_STEP_ERRORS.REQUIRED);
+          if (issued === "rate_limited") throw new TwoStepRateLimited();
+          if (issued === "send_failed") throw new TwoStepSendFailed();
+          throw new TwoStepRequired();
         }
-        const verified = await verifyTwoStepCode(user.id, SIGN_IN_CODE, credentials.passcode);
-        if (verified === "rate_limited") throw new Error(TWO_STEP_ERRORS.RATE_LIMITED);
-        if (verified !== "ok") throw new Error(TWO_STEP_ERRORS.INVALID);
+        const verified = await verifyTwoStepCode(user.id, SIGN_IN_CODE, passcode);
+        if (verified === "rate_limited") throw new TwoStepRateLimited();
+        if (verified !== "ok") throw new TwoStepInvalid();
       }
 
       return { id: user.id, name: user.name, email: user.email, role: user.role };
@@ -94,7 +118,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   );
 }
 
-export const authOptions: NextAuthOptions = {
+export const { auth, handlers, signIn, signOut } = NextAuth({
   providers,
   secret: process.env.NEXTAUTH_SECRET,
   pages: {
@@ -177,7 +201,7 @@ export const authOptions: NextAuthOptions = {
     // Google sign-in doesn't, so we resolve it from the DB by email.
     async jwt({ token, user }) {
       if (user) {
-        token.id = user.id;
+        token.id = user.id ?? token.id;
         token.role = user.role;
       }
       if (token.email && !token.role) {
@@ -200,7 +224,7 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
-};
+});
 
 /**
  * Session plus the account row behind it, or null if there's no session or the
@@ -216,7 +240,7 @@ export const authOptions: NextAuthOptions = {
  * from the old account walk straight into the new one.
  */
 async function activeSession(): Promise<{ session: Session; account: UserRow } | null> {
-  const session = await getServerSession(authOptions);
+  const session = await auth();
   const email = session?.user?.email;
   if (!session || !email) return null;
 

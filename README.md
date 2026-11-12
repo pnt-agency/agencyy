@@ -5,7 +5,7 @@
 - **Framework:** Next.js (App Router)
 - **Database:** PostgreSQL 16, run locally via Docker Compose
 - **ORM:** Drizzle ORM (+ Drizzle Kit for migrations)
-- **Auth:** NextAuth — credentials (email/password, hashed with bcrypt) + Google OAuth
+- **Auth:** NextAuth (Auth.js) v5 — credentials (email/password, hashed with bcrypt) + Google OAuth
 - **Email:** Resend
 
 The app itself runs directly with `npm run dev` on your machine. Only the
@@ -140,12 +140,13 @@ lib/
     index.ts            # Drizzle client / connection pool
     schema.ts           # Table definitions (talents, employers, users)
   queries.ts            # CRUD functions used by Server Actions
-  auth.ts               # NextAuth config (credentials + Google)
+  auth.ts               # NextAuth v5 config + auth()/session helpers (credentials + Google)
   resend.ts             # Email sending
 scripts/
   seed-admin.ts         # CLI to create/update admin users
 app/
   actions.ts            # Server Actions for the public application forms
+  auth-actions.ts       # Sign-in/out server actions (credentialsSignIn, googleSignIn)
 ```
 
 ## Notes on the Postgres migration
@@ -161,6 +162,34 @@ Postgres with Drizzle ORM:
 - Admin authentication moved from a single hardcoded email/password pair in
   environment variables to a real `users` table with bcrypt-hashed
   passwords — see step 5 above.
+
+## Notes on the NextAuth v5 migration
+
+Auth was upgraded from NextAuth v4 to **NextAuth v5 (Auth.js)**. The environment
+variables (`NEXTAUTH_SECRET`, `NEXTAUTH_URL`, Google keys) are unchanged — v5
+still reads them, and `lib/two-step.ts` / `lib/form-token.ts` use the secret
+directly for their own HMACs. What changed is the code shape:
+
+- `lib/auth.ts` now calls `NextAuth({...})` and exports `auth`, `handlers`,
+  `signIn` and `signOut`. Server code reads the session with `await auth()`
+  (replacing v4's `getServerSession`), and the API route
+  (`app/api/auth/[...nextauth]/route.ts`) re-exports `handlers`.
+- Sign-in goes through **server actions** in `app/auth-actions.ts`
+  (`credentialsSignIn`, `googleSignIn`) rather than the client `signIn()` from
+  `next-auth/react`. This is how v5 surfaces the two-step verification codes:
+  `lib/auth.ts` throws `CredentialsSignin` subclasses whose `code` matches
+  `TWO_STEP_ERRORS` in `lib/two-step-shared.ts`, and `credentialsSignIn` catches
+  them and returns `{ success, code }` to the form.
+- Sign-out and `useSession()` stay on the `next-auth/react` client API. Sign-out
+  deliberately stays client-side because it hard-navigates (`window.location`),
+  which the navbar relies on to reset its state — a server-action redirect would
+  be a soft navigation and wouldn't.
+
+v5 is published under the `beta` dist-tag and pinned via the committed
+`package-lock.json` (CI installs with `npm ci`), so the exact version is
+reproducible. The `^5.0.0-beta.32` range in `package.json` means an explicit
+`npm update` will pick up newer betas; check the Auth.js release notes before
+bumping, since pre-1.0 releases occasionally change their API.
 
 ## Production deployment
 

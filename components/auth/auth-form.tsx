@@ -3,9 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
 import { ArrowRight, Mail, User, Briefcase } from "lucide-react";
-import { registerMember } from "@/app/auth-actions";
+import { registerMember, credentialsSignIn, googleSignIn } from "@/app/auth-actions";
 import { PasswordInput } from "@/components/ui/password-input";
 import { PasswordStrength } from "@/components/auth/password-strength";
 import { MIN_PASSWORD_LENGTH } from "@/lib/password";
@@ -39,14 +38,9 @@ export function AuthForm({ oauthError = null }: { oauthError?: string | null }) 
 
   /** One round of credentials sign-in; with `passcode` on the two-step round. */
   const signInWithPassword = async (passcode?: string) => {
-    const result = await signIn("credentials", {
-      email,
-      password,
-      ...(passcode ? { passcode } : {}),
-      redirect: false,
-    });
+    const result = await credentialsSignIn({ email, password, passcode });
 
-    if (!result?.error) {
+    if (result.success) {
       // A brand-new password account has an unverified address, and the
       // profile is gated behind verification — so send them to the "check your
       // inbox" screen rather than a profile form they'd be bounced out of.
@@ -55,7 +49,7 @@ export function AuthForm({ oauthError = null }: { oauthError?: string | null }) 
       return;
     }
 
-    switch (result.error) {
+    switch (result.code) {
       case TWO_STEP_ERRORS.REQUIRED:
         setAwaitingCode(true);
         setCode("");
@@ -117,7 +111,7 @@ export function AuthForm({ oauthError = null }: { oauthError?: string | null }) 
   };
 
   const handleGoogleLogin = () => {
-    signIn("google", { callbackUrl: "/profile-setup" });
+    googleSignIn();
   };
 
   return (

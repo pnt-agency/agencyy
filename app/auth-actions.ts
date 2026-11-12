@@ -2,7 +2,13 @@
 
 import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
-import { getCurrentUser, getCurrentAccount, isEmailVerified } from "@/lib/auth";
+import { AuthError, CredentialsSignin } from "next-auth";
+import {
+  getCurrentUser,
+  getCurrentAccount,
+  isEmailVerified,
+  signIn,
+} from "@/lib/auth";
 import {
   registerMemberSchema,
   saveProfileSchema,
@@ -380,4 +386,57 @@ export async function resetPassword(input: unknown): Promise<ActionResult> {
     console.warn("Password-changed notice could not be sent:", error);
   }
   return { success: true };
+}
+
+// ---------- Sign-in / sign-out (Auth.js v5) ----------
+
+/**
+ * Credentials sign-in for the client form. Auth.js's server-side `signIn`
+ * throws an {@link AuthError} on failure — a wrong password surfaces as a
+ * `CredentialsSignin` with `code === "credentials"`, while the two-step
+ * verification steps surface the codes from lib/two-step-shared.ts (see the
+ * credentials provider in lib/auth.ts). We translate that into a plain result
+ * the client can branch on without importing next-auth itself.
+ */
+export async function credentialsSignIn(input: {
+  email: string;
+  password: string;
+  passcode?: string;
+}): Promise<{ success: true } | { success: false; code: string }> {
+  const email = typeof input?.email === "string" ? input.email.trim() : "";
+  const password = typeof input?.password === "string" ? input.password : "";
+  if (!email || !password) {
+    return { success: false, code: "credentials" };
+  }
+
+  try {
+    await signIn("credentials", {
+      email,
+      password,
+      // Only send passcode on the second (two-step) round — including it as
+      // `undefined` would serialize to the literal string "undefined", which
+      // authorize() would treat as a wrong code.
+      ...(input.passcode ? { passcode: input.passcode } : {}),
+      redirect: false,
+    });
+    return { success: true };
+  } catch (error) {
+    if (error instanceof AuthError) {
+      // `CredentialsSignin` carries a `code` (the two-step signal, or
+      // "credentials" for a wrong password); every other AuthError only has a
+      // `type`, which we pass through verbatim rather than inventing one.
+      const code = error instanceof CredentialsSignin ? error.code : error.type;
+      return { success: false, code };
+    }
+    // Not an expected auth failure — let it surface as a server error.
+    throw error;
+  }
+}
+
+/**
+ * OAuth sign-in. Auth.js's `signIn` performs the redirect to Google itself
+ * (it throws the framework redirect), so this never returns to the caller.
+ */
+export async function googleSignIn(): Promise<void> {
+  await signIn("google", { redirectTo: "/profile-setup" });
 }
