@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { openCookieSettings } from "@/components/cookie-consent/cookie-banner";
 
@@ -34,13 +35,15 @@ export function Footer() {
 
           {/* Brand column */}
           <div className="md:col-span-5">
-            <Link href="/" className="inline-flex items-center gap-2 mb-5 group">
-              <div className="w-9 h-9 bg-gold rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                <span className="text-black font-black text-xs">AP</span>
-              </div>
-              <span className="text-xl font-display font-bold text-white tracking-tight">
-                Amaris Partners
-              </span>
+            <Link href="/" aria-label="Amaris Partners — home" className="group inline-flex mb-5">
+              <Image
+                src="/brand/amaris-logo-horizontal-on-dark.svg"
+                alt="Amaris Partners"
+                width={210}
+                height={70}
+                sizes="144px"
+                className="h-12 w-auto transition-transform duration-300 group-hover:scale-[1.03]"
+              />
             </Link>
             <p className="text-sm text-white/50 max-w-xs leading-relaxed">
               Connecting screened, trained, and verified remote talent with companies worldwide. Excellence and integrity in every placement.

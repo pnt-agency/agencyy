@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState, useEffect, useRef } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
@@ -89,11 +90,14 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const isDarkBg = pathname === "/";
-  const textColorClass = isDarkBg && !scrolled ? "text-white" : "text-black";
-  // The mark stays gold on every background — black initials on #d4af37 is
-  // 9.42:1, so it reads on both the transparent dark header and the white one.
-  const logoBgClass = "bg-gold text-black";
+  // Pages whose first screen sits on a dark panel: the header is transparent
+  // there, so it needs light artwork and white links until the user scrolls.
+  const isDarkBg = pathname === "/" || pathname === "/about";
+  // The hero header is transparent over a dark section, the scrolled header is
+  // white, so the logo swaps between its on-dark and on-light artwork. Both are
+  // rendered and cross-faded (rather than swapping src) so the switch doesn't
+  // flash while scrolling.
+  const onDarkHeader = isDarkBg && !scrolled;
 
   const homeHref = isLoggedIn ? "/home" : "/";
 
@@ -122,12 +126,33 @@ export function Navbar() {
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
 
           {/* Logo */}
-          <Link href={homeHref} className="flex items-center gap-2 group">
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-md ${logoBgClass}`}>
-              <span className="font-black text-xs tracking-tight">AP</span>
-            </div>
-            <span className={`text-lg font-display font-bold tracking-tight ${textColorClass}`}>
-              Amaris <span className="font-black">Partners</span>
+          <Link
+            href={homeHref}
+            aria-label="Amaris Partners — home"
+            className="group flex items-center"
+          >
+            <span className="relative block h-10 w-[120px] transition-transform duration-300 group-hover:scale-[1.03]">
+              <Image
+                src="/brand/amaris-logo-horizontal.svg"
+                alt="Amaris Partners"
+                fill
+                priority
+                sizes="120px"
+                className={`object-contain object-left transition-opacity duration-300 ${
+                  onDarkHeader ? "opacity-0" : "opacity-100"
+                }`}
+              />
+              <Image
+                src="/brand/amaris-logo-horizontal-on-dark.svg"
+                alt=""
+                aria-hidden
+                fill
+                priority
+                sizes="120px"
+                className={`object-contain object-left transition-opacity duration-300 ${
+                  onDarkHeader ? "opacity-100" : "opacity-0"
+                }`}
+              />
             </span>
           </Link>
 

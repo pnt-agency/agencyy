@@ -51,3 +51,10 @@ public/videos/
 /cyber_audit
 # Source PDFs for the legal pages; the site renders its own copy in app/privacy and app/terms.
 /legaldocs/
+
+# Business planning documents (LaTeX source + compiled PDF) — generated locally, not tracked.
+/business-model-proposal-v2.tex
+/business-model-proposal-v2.pdf
+
+# Brand asset bundle; the extracted files in public/brand and app/ are tracked.
+/files.zip
