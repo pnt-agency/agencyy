@@ -22,6 +22,9 @@ const ACTION_LABELS: Record<string, string> = {
   [AUDIT_ACTIONS.CV_DOWNLOAD]: "CV downloaded",
   [AUDIT_ACTIONS.TRAINING_VIDEO_SET]: "Training video uploaded",
   [AUDIT_ACTIONS.TRAINING_MODULE_PUBLISHED]: "Training module published",
+  [AUDIT_ACTIONS.KYC_APPROVED]: "Identity verified",
+  [AUDIT_ACTIONS.KYC_REJECTED]: "Identity submission rejected",
+  [AUDIT_ACTIONS.KYC_DOCUMENT_VIEW]: "Identity document viewed",
 };
 
 // Renders a before/after pair as "old → new" per field. Values are whatever the
@@ -88,6 +91,7 @@ export default async function AdminAuditPage({
             <Link href="/admin/users" className={navLink}>Users</Link>
             <Link href="/admin/directory" className={navLink}>Directory</Link>
             <Link href="/admin/interests" className={navLink}>Interests</Link>
+            <Link href="/admin/kyc" className={navLink}>KYC</Link>
             <Link href="/admin/training" className={navLink}>Training</Link>
           </div>
         </div>

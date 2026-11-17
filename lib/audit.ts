@@ -20,6 +20,10 @@ export const AUDIT_ACTIONS = {
   CV_DOWNLOAD: "talent.cv.download",
   TRAINING_VIDEO_SET: "training.video.set",
   TRAINING_MODULE_PUBLISHED: "training.module.published",
+  KYC_APPROVED: "kyc.approved",
+  KYC_REJECTED: "kyc.rejected",
+  // Reading identity documents is PII access, logged like a CV download.
+  KYC_DOCUMENT_VIEW: "kyc.document.view",
 } as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[keyof typeof AUDIT_ACTIONS];
@@ -31,6 +35,7 @@ export const AUDIT_TARGETS = {
   INTEREST: "interest",
   DATASET: "dataset",
   TRAINING_MODULE: "training_module",
+  KYC: "kyc",
 } as const;
 
 export type AuditTarget = (typeof AUDIT_TARGETS)[keyof typeof AUDIT_TARGETS];

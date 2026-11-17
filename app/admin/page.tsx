@@ -134,6 +134,7 @@ export default async function AdminDashboard({
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <Link href="/admin/directory" className="text-sm font-semibold text-gray-600 hover:text-black">Talent Directory</Link>
             <Link href="/admin/interests" className="text-sm font-semibold text-gray-600 hover:text-black">Interests</Link>
+            <Link href="/admin/kyc" className="text-sm font-semibold text-gray-600 hover:text-black">KYC</Link>
             <Link href="/admin/users" className="text-sm font-semibold text-gray-600 hover:text-black">Users</Link>
             <Link href="/admin/training" className="text-sm font-semibold text-gray-600 hover:text-black">Training</Link>
             <Link href="/admin/audit" className="text-sm font-semibold text-gray-600 hover:text-black">Audit Log</Link>

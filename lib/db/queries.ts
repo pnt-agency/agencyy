@@ -9,6 +9,7 @@ import {
   employerProfiles,
   authTokens,
   talentInterests,
+  talentKyc,
   notifications,
   auditLogs,
   trainingModules,
@@ -22,6 +23,8 @@ import {
   type EmployerProfileRow,
   type AuthTokenRow,
   type TalentInterestRow,
+  type TalentKycRow,
+  type NewTalentKycRow,
   type NotificationRow,
   type AuditLogRow,
   type NewAuditLogRow,
@@ -298,11 +301,23 @@ export async function getUserById(id: string): Promise<UserRow | null> {
  * and address after they've asked to be deleted isn't something analytics
  * needs, and rewriting the email to a per-id tombstone frees the unique index
  * so the same person can sign up again later.
+ *
+ * The KYC row is deleted outright, not soft-deleted: a legal name, date of
+ * birth and ID number have no analytics value, and "delete my account" has to
+ * mean the identity documents go too. The R2 keys are returned so the caller
+ * can remove the files themselves — storage can't join the transaction, and a
+ * failure there must not roll back the deletion.
  */
-export async function softDeleteUser(userId: string): Promise<void> {
-  await db.transaction(async (tx) => {
+export async function softDeleteUser(userId: string): Promise<{ kycKeys: string[] }> {
+  return db.transaction(async (tx) => {
     // Any verification or reset link already in an inbox must stop working.
     await tx.delete(authTokens).where(eq(authTokens.userId, userId));
+
+    const kycRows = await tx
+      .delete(talentKyc)
+      .where(eq(talentKyc.userId, userId))
+      .returning({ idDocumentKey: talentKyc.idDocumentKey, selfieKey: talentKyc.selfieKey });
+
     await tx
       .update(users)
       .set({
@@ -312,6 +327,10 @@ export async function softDeleteUser(userId: string): Promise<void> {
         passwordHash: null,
       })
       .where(eq(users.id, userId));
+
+    return {
+      kycKeys: kycRows.flatMap((row) => [row.idDocumentKey, row.selfieKey]),
+    };
   });
 }
 
@@ -449,6 +468,8 @@ export type DirectoryTalent = {
   bio: string | null;
   portfolio: string | null;
   country: string | null;
+  /** Null when the talent has never submitted identity documents. */
+  kycStatus: string | null;
 };
 
 const directoryColumns = {
@@ -459,6 +480,7 @@ const directoryColumns = {
   bio: talentProfiles.bio,
   portfolio: talentProfiles.portfolio,
   country: talentProfiles.country,
+  kycStatus: talentKyc.status,
 };
 
 export async function listVerifiedTalent(
@@ -472,6 +494,7 @@ export async function listVerifiedTalent(
     .select(directoryColumns)
     .from(talentProfiles)
     .innerJoin(users, eq(users.id, talentProfiles.userId))
+    .leftJoin(talentKyc, eq(talentKyc.userId, talentProfiles.userId))
     .where(and(...conds))
     .orderBy(desc(talentProfiles.updatedAt));
 }
@@ -481,6 +504,7 @@ export async function getVerifiedTalentById(userId: string): Promise<DirectoryTa
     .select(directoryColumns)
     .from(talentProfiles)
     .innerJoin(users, eq(users.id, talentProfiles.userId))
+    .leftJoin(talentKyc, eq(talentKyc.userId, talentProfiles.userId))
     .where(and(eq(talentProfiles.userId, userId), eq(talentProfiles.verified, true), notDeleted));
   return row ?? null;
 }
@@ -592,6 +616,114 @@ export async function updateInterestStatus(
   return row ?? null;
 }
 
+// ---------- KYC ----------
+
+export async function getTalentKyc(userId: string): Promise<TalentKycRow | null> {
+  const [row] = await db.select().from(talentKyc).where(eq(talentKyc.userId, userId));
+  return row ?? null;
+}
+
+/**
+ * Creates or replaces a talent's submission.
+ *
+ * Upsert rather than insert: a rejected talent resubmits the same row, which is
+ * also what resets the review fields. The caller deletes the previous R2
+ * objects after this succeeds — see submitKycAction.
+ */
+export async function upsertTalentKyc(data: NewTalentKycRow): Promise<void> {
+  const now = new Date();
+  await db
+    .insert(talentKyc)
+    .values({ ...data, submittedAt: now, updatedAt: now })
+    .onConflictDoUpdate({
+      target: talentKyc.userId,
+      set: {
+        legalName: data.legalName,
+        dateOfBirth: data.dateOfBirth,
+        country: data.country,
+        idType: data.idType,
+        idNumber: data.idNumber,
+        idDocumentKey: data.idDocumentKey,
+        idDocumentFilename: data.idDocumentFilename,
+        idDocumentContentType: data.idDocumentContentType,
+        idDocumentSize: data.idDocumentSize,
+        selfieKey: data.selfieKey,
+        selfieFilename: data.selfieFilename,
+        selfieContentType: data.selfieContentType,
+        selfieSize: data.selfieSize,
+        status: "Pending",
+        reviewNote: null,
+        reviewedAt: null,
+        reviewedBy: null,
+        submittedAt: now,
+        updatedAt: now,
+      },
+    });
+}
+
+export type KycQueueItem = {
+  userId: string;
+  name: string;
+  email: string;
+  legalName: string;
+  country: string;
+  idType: string;
+  idNumber: string;
+  status: string;
+  submittedAt: Date;
+  reviewedAt: Date | null;
+  reviewNote: string | null;
+  idDocumentFilename: string;
+  selfieFilename: string;
+};
+
+/** Every submission, pending first — the order the admin queue is worked in. */
+export async function listKycSubmissions(): Promise<KycQueueItem[]> {
+  return db
+    .select({
+      userId: talentKyc.userId,
+      name: users.name,
+      email: users.email,
+      legalName: talentKyc.legalName,
+      country: talentKyc.country,
+      idType: talentKyc.idType,
+      idNumber: talentKyc.idNumber,
+      status: talentKyc.status,
+      submittedAt: talentKyc.submittedAt,
+      reviewedAt: talentKyc.reviewedAt,
+      reviewNote: talentKyc.reviewNote,
+      idDocumentFilename: talentKyc.idDocumentFilename,
+      selfieFilename: talentKyc.selfieFilename,
+    })
+    .from(talentKyc)
+    .innerJoin(users, eq(users.id, talentKyc.userId))
+    .where(notDeleted)
+    .orderBy(
+      sql`case when ${talentKyc.status} = 'Pending' then 0 else 1 end`,
+      desc(talentKyc.submittedAt)
+    );
+}
+
+export async function countPendingKyc(): Promise<number> {
+  const [row] = await db
+    .select({ value: count() })
+    .from(talentKyc)
+    .where(eq(talentKyc.status, "Pending"));
+  return row?.value ?? 0;
+}
+
+export async function reviewTalentKyc(
+  userId: string,
+  status: "Approved" | "Rejected",
+  reviewedBy: string,
+  note: string | null
+): Promise<void> {
+  await db
+    .update(talentKyc)
+    .set({ status, reviewedBy, reviewNote: note, reviewedAt: new Date(), updatedAt: new Date() })
+    .where(eq(talentKyc.userId, userId));
+}
+
 // ---------- Notifications ----------
 
 // Cap on what the bell fetches. The dropdown scrolls; nobody reads past this.
@@ -677,6 +809,7 @@ export type TalentAccount = {
   role: string | null;
   skills: string | null;
   verified: boolean;
+  kycStatus: string | null;
   createdAt: Date;
 };
 
@@ -689,10 +822,12 @@ export async function listTalentAccounts(): Promise<TalentAccount[]> {
       role: talentProfiles.role,
       skills: talentProfiles.skills,
       verified: talentProfiles.verified,
+      kycStatus: talentKyc.status,
       createdAt: users.createdAt,
     })
     .from(users)
     .leftJoin(talentProfiles, eq(talentProfiles.userId, users.id))
+    .leftJoin(talentKyc, eq(talentKyc.userId, users.id))
     .where(and(eq(users.role, "talent"), notDeleted))
     .orderBy(desc(users.createdAt));
   // verified is null when the talent has no profile row yet — treat as false.

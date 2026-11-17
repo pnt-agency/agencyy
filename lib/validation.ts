@@ -201,6 +201,88 @@ export const expressInterestSchema = z.object({
   message: z.string().trim().max(2000).optional().or(z.literal("")),
 });
 
+
+// ---------- KYC (identity verification) ----------
+
+// Mirrors the kyc_id_type Postgres enum. Exported so the form's select and the
+// server schema can't drift apart.
+export const KYC_ID_TYPES = [
+  "Passport",
+  "National ID",
+  "Driver's Licence",
+  "Voter's Card",
+] as const;
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** True when `value` is a real calendar date and the person is 18 or older. */
+export function isAdultBirthDate(value: string, now = new Date()): boolean {
+  if (!ISO_DATE.test(value)) return false;
+  const dob = new Date(`${value}T00:00:00Z`);
+  // Round-tripping catches 2023-02-31, which Date would happily roll over.
+  if (Number.isNaN(dob.getTime()) || dob.toISOString().slice(0, 10) !== value) return false;
+  if (dob > now) return false;
+
+  let age = now.getUTCFullYear() - dob.getUTCFullYear();
+  const monthDelta = now.getUTCMonth() - dob.getUTCMonth();
+  if (monthDelta < 0 || (monthDelta === 0 && now.getUTCDate() < dob.getUTCDate())) age--;
+  return age >= 18 && age <= 100;
+}
+
+// A file already uploaded to R2. As with CVs, the server re-checks the prefix
+// so a submission can only reference an object this app issued for that slot.
+function kycFile(prefix: "id" | "selfie", extensions: string) {
+  return z.object({
+    key: z
+      .string()
+      .regex(new RegExp(`^kyc/${prefix}/[a-f0-9-]{36}\\.(${extensions})$`), "Invalid file reference"),
+    filename: z.string().trim().min(1).max(255),
+    size: z.number().int().positive().max(10 * 1024 * 1024),
+    contentType: z.string().trim().max(120),
+  });
+}
+
+export const kycSubmissionSchema = z.object({
+  legalName: z
+    .string()
+    .trim()
+    .min(2, "Enter your full legal name")
+    .max(120)
+    .regex(/^[\p{L}][\p{L}\s'.-]*$/u, "Use letters, spaces, hyphens and apostrophes only"),
+  dateOfBirth: z
+    .string()
+    .trim()
+    .refine((value) => isAdultBirthDate(value), "You must be 18 or older, and the date must be valid"),
+  country: z.string().trim().min(2, "Country is required").max(80),
+  idType: z.enum(KYC_ID_TYPES, { message: "Choose the type of ID" }),
+  idNumber: z
+    .string()
+    .trim()
+    .min(4, "Enter the ID number")
+    .max(40)
+    .regex(/^[A-Za-z0-9-]+$/, "ID numbers contain letters, digits and hyphens only"),
+  idDocument: kycFile("id", "pdf|jpg|jpeg|png|webp"),
+  selfie: kycFile("selfie", "jpg|jpeg|png|webp"),
+  // NDPA: the processing has to be agreed to explicitly, not inferred.
+  consent: z.boolean().refine((value) => value, {
+    message: "You must agree to identity verification before submitting",
+  }),
+});
+
+export const kycReviewSchema = z
+  .object({
+    userId: z.string().uuid(),
+    decision: z.enum(["approve", "reject"]),
+    note: z.string().trim().max(1000).optional().or(z.literal("")),
+  })
+  .refine((value) => value.decision !== "reject" || Boolean(value.note?.trim()), {
+    message: "Tell the talent what to fix",
+    path: ["note"],
+  });
+
+export type KycSubmissionInput = z.infer<typeof kycSubmissionSchema>;
+export type KycReviewInput = z.infer<typeof kycReviewSchema>;
+
 export type RegisterMemberInput = z.infer<typeof registerMemberSchema>;
 export type TalentProfileInput = z.infer<typeof talentProfileSchema>;
 export type EmployerProfileInput = z.infer<typeof employerProfileSchema>;

@@ -51,6 +51,8 @@ export const RATE_LIMITS = {
   // the per-file cost is bounded by the presign itself (single object, pinned
   // type and size). This exists to cap how much a script can make us store.
   CV_PRESIGN: { name: "cv-presign", limit: 20, windowMs: HOUR },
+  // Identity documents are two uploads per submission; the same bound as CVs.
+  KYC_PRESIGN: { name: "kyc-presign", limit: 20, windowMs: HOUR },
   // Deliberately tight: every allowed request sends an email to an address the
   // caller chose, which is the whole mechanism of an email-bombing campaign.
   PASSWORD_RESET: { name: "password-reset", limit: 5, windowMs: HOUR },

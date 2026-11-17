@@ -7,6 +7,7 @@ import {
   boolean,
   pgEnum,
   jsonb,
+  date,
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -199,6 +200,78 @@ export const talentInterests = pgTable("talent_interests", {
     .defaultNow(),
 });
 
+// ---------- KYC (identity verification) ----------
+
+export const kycStatusEnum = pgEnum("kyc_status", ["Pending", "Approved", "Rejected"]);
+
+export const kycIdTypeEnum = pgEnum("kyc_id_type", [
+  "Passport",
+  "National ID",
+  "Driver's Licence",
+  "Voter's Card",
+]);
+
+/**
+ * One identity submission per talent, reviewed by an admin.
+ *
+ * Documents live in the private R2 bucket under `kyc/id/` and `kyc/selfie/`
+ * and are reachable only through short-lived presigned links issued to admins
+ * (each click is audit-logged). Nothing here is exposed to employers except the
+ * derived "ID verified" badge.
+ *
+ * `method` and `providerReference` exist so a third-party check (Smile ID,
+ * Dojah, VerifyMe) can be added later without reshaping the table: it writes
+ * its own method and reference against the same submission.
+ *
+ * Rejection is a request for a better submission, not a terminal state: the
+ * talent resubmits, which overwrites this row and resets the review fields.
+ */
+export const talentKyc = pgTable(
+  "talent_kyc",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // One row per account — enforced by the unique constraint, not convention.
+    userId: uuid("user_id")
+      .notNull()
+      .unique()
+      .references(() => users.id, { onDelete: "cascade" }),
+    legalName: text("legal_name").notNull(),
+    // Date only: the exact timestamp on an ID is meaningless, and storing one
+    // would just invite timezone bugs.
+    dateOfBirth: date("date_of_birth").notNull(),
+    country: text("country").notNull(),
+    idType: kycIdTypeEnum("id_type").notNull(),
+    // Kept for the manual match. Masked in every list view; see maskIdNumber.
+    idNumber: text("id_number").notNull(),
+
+    idDocumentKey: text("id_document_key").notNull(),
+    idDocumentFilename: text("id_document_filename").notNull(),
+    idDocumentContentType: text("id_document_content_type").notNull(),
+    idDocumentSize: integer("id_document_size").notNull(),
+
+    selfieKey: text("selfie_key").notNull(),
+    selfieFilename: text("selfie_filename").notNull(),
+    selfieContentType: text("selfie_content_type").notNull(),
+    selfieSize: integer("selfie_size").notNull(),
+
+    status: kycStatusEnum("status").notNull().default("Pending"),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull().defaultNow(),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    // Nulled rather than deleted if the reviewing admin's account goes away.
+    reviewedBy: uuid("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+    // Required on rejection — this is what the talent is shown.
+    reviewNote: text("review_note"),
+
+    method: text("method").notNull().default("manual"),
+    providerReference: text("provider_reference"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    // The admin queue reads "oldest pending first"; the status is the filter.
+    index("talent_kyc_status_idx").on(table.status, table.submittedAt),
+  ]
+);
+
 // In-app notifications for the navbar bell. Written by server actions when
 // something happens that a member should know about; read only by the owner.
 export const notifications = pgTable(
@@ -375,6 +448,8 @@ export type AuthTokenRow = typeof authTokens.$inferSelect;
 export type NewAuthTokenRow = typeof authTokens.$inferInsert;
 export type TalentInterestRow = typeof talentInterests.$inferSelect;
 export type NewTalentInterestRow = typeof talentInterests.$inferInsert;
+export type TalentKycRow = typeof talentKyc.$inferSelect;
+export type NewTalentKycRow = typeof talentKyc.$inferInsert;
 export type NotificationRow = typeof notifications.$inferSelect;
 export type NewNotificationRow = typeof notifications.$inferInsert;
 export type AuditLogRow = typeof auditLogs.$inferSelect;

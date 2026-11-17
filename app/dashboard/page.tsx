@@ -4,6 +4,7 @@ import {
   getUserByEmail,
   getTalentProfile,
   getEmployerProfile,
+  getTalentKyc,
   countTalentApplicationsForUser,
   countEmployerInquiriesForUser,
   countInterestsForTalent,
@@ -36,13 +37,14 @@ export default async function DashboardPage() {
 
   // Role-specific metrics. Only talent/employer own a profile, so an admin
   // fetches nothing and the view hides those panels.
-  const [talentProfile, employerProfile, leadCount, interestCount] = await Promise.all([
+  const [talentProfile, employerProfile, leadCount, interestCount, kyc] = await Promise.all([
     isEmployer ? Promise.resolve(null) : getTalentProfile(user.id),
     isEmployer ? getEmployerProfile(user.id) : Promise.resolve(null),
     isEmployer
       ? countEmployerInquiriesForUser(user.id, verifiedEmail)
       : countTalentApplicationsForUser(user.id, verifiedEmail),
     isEmployer ? Promise.resolve(0) : countInterestsForTalent(user.id),
+    role === "talent" ? getTalentKyc(user.id) : Promise.resolve(null),
   ]);
 
   const profileCompleteness = isEmployer
@@ -79,6 +81,7 @@ export default async function DashboardPage() {
       emailVerified={Boolean(account?.emailVerified)}
       listed={Boolean(talentProfile?.verified)}
       interestCount={interestCount}
+      kycStatus={kyc?.status ?? null}
     />
   );
 }

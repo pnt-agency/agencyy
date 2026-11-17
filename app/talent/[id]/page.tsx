@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getVerifiedTalentById } from "@/lib/db/queries";
 import { Badge } from "@/components/ui/badge";
-import { ShieldCheck, ArrowLeft } from "lucide-react";
+import { ShieldCheck, IdCard, ArrowLeft } from "lucide-react";
 import { ExpressInterestButton } from "@/components/directory/express-interest-button";
 
 export default async function TalentProfilePage({
@@ -48,9 +48,16 @@ export default async function TalentProfilePage({
                 {talent.role && <p className="text-gray-600">{talent.role}</p>}
               </div>
             </div>
-            <Badge variant="success">
-              <span className="inline-flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Verified</span>
-            </Badge>
+            <div className="flex flex-col items-end gap-1">
+              <Badge variant="success">
+                <span className="inline-flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Verified</span>
+              </Badge>
+              {talent.kycStatus === "Approved" && (
+                <Badge variant="ink">
+                  <span className="inline-flex items-center gap-1"><IdCard className="w-3 h-3" /> ID verified</span>
+                </Badge>
+              )}
+            </div>
           </div>
 
           {talent.skills && (

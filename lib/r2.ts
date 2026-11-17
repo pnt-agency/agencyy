@@ -10,6 +10,8 @@ import { randomUUID } from "node:crypto";
  * One private bucket, nothing in it ever public:
  *   - CVs (cv/ prefix) are read only through a one-minute presigned GET issued
  *     to an admin, forced to download;
+ *   - identity documents (kyc/id/ and kyc/selfie/) are read the same way, with
+ *     every view written to the audit log;
  *   - training videos (training/ prefix) are read through a presigned GET
  *     minted each time a signed-in member or admin loads a training page.
  *
@@ -57,6 +59,11 @@ export function isVideoStorageConfigured(): boolean {
   return Boolean(client && PRIVATE_BUCKET);
 }
 
+export function isKycStorageConfigured(): boolean {
+  // Same private bucket again; KYC documents are just another prefix.
+  return Boolean(client && PRIVATE_BUCKET);
+}
+
 // ---------- Upload limits ----------
 
 export const CV_MAX_BYTES = 10 * 1024 * 1024; // 10MB
@@ -73,6 +80,22 @@ export const VIDEO_CONTENT_TYPES: Record<string, string> = {
   "video/webm": "webm",
   "video/quicktime": "mov",
 };
+
+// KYC: an ID can be a scan (PDF) or a phone photo; a selfie is a photo only.
+export const KYC_MAX_BYTES = 10 * 1024 * 1024; // 10MB
+export const KYC_ID_CONTENT_TYPES: Record<string, string> = {
+  "application/pdf": "pdf",
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+export const KYC_SELFIE_CONTENT_TYPES: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+export type KycDocumentKind = "id" | "selfie";
 
 /**
  * Builds the object key. The caller never chooses it: a client-supplied path
@@ -132,6 +155,34 @@ export async function presignCvUpload(
   return { url, key };
 }
 
+/**
+ * Presigns a KYC document upload into the private bucket.
+ *
+ * The prefix is decided here, never by the client: `kyc/id/` and
+ * `kyc/selfie/` are the only keys this app will later accept back in a
+ * submission, so a caller can't point the row at someone else's object.
+ */
+export async function presignKycUpload(
+  kind: KycDocumentKind,
+  contentType: string,
+  contentLength: number
+): Promise<PresignedUpload> {
+  if (!PRIVATE_BUCKET) throw new Error("R2_BUCKET is not configured.");
+  const allowed = kind === "id" ? KYC_ID_CONTENT_TYPES : KYC_SELFIE_CONTENT_TYPES;
+  const extension = allowed[contentType];
+  if (!extension) throw new Error("Unsupported KYC file type.");
+
+  const key = buildKey(`kyc/${kind}`, extension);
+  const url = await presignPut({
+    bucket: PRIVATE_BUCKET,
+    key,
+    contentType,
+    contentLength,
+    expiresIn: 300, // 5 minutes, same as a CV
+  });
+  return { url, key };
+}
+
 /** Presigns a training video upload into the private bucket. */
 export async function presignVideoUpload(
   contentType: string,
@@ -150,6 +201,19 @@ export async function presignVideoUpload(
     expiresIn: 3600, // an hour — a 500MB upload on a slow line needs the room
   });
   return { url, key };
+}
+
+/**
+ * Short-lived download link for a stored KYC document.
+ *
+ * Refuses any key outside the KYC prefixes, so this can't be borrowed to read
+ * a CV or a training video. Forced attachment, like every private download.
+ */
+export async function presignKycDownload(key: string, filename: string): Promise<string> {
+  if (!key.startsWith("kyc/id/") && !key.startsWith("kyc/selfie/")) {
+    throw new Error("Not a KYC document key.");
+  }
+  return presignCvDownload(key, filename);
 }
 
 /**

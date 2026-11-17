@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { listVerifiedTalent } from "@/lib/db/queries";
 import { Badge } from "@/components/ui/badge";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, IdCard } from "lucide-react";
 import { TALENT_ROLES } from "@/lib/roles";
 
 export default async function TalentDirectoryPage({
@@ -71,9 +71,16 @@ export default async function TalentDirectoryPage({
                   <div className="w-12 h-12 rounded-2xl bg-black text-white flex items-center justify-center font-black">
                     {t.name.charAt(0).toUpperCase()}
                   </div>
-                  <Badge variant="success">
-                    <span className="inline-flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Verified</span>
-                  </Badge>
+                  <div className="flex flex-col items-end gap-1">
+                    <Badge variant="success">
+                      <span className="inline-flex items-center gap-1"><ShieldCheck className="w-3 h-3" /> Verified</span>
+                    </Badge>
+                    {t.kycStatus === "Approved" && (
+                      <Badge variant="ink">
+                        <span className="inline-flex items-center gap-1"><IdCard className="w-3 h-3" /> ID verified</span>
+                      </Badge>
+                    )}
+                  </div>
                 </div>
                 <h3 className="font-bold text-black group-hover:text-black">{t.name}</h3>
                 {t.role && <p className="text-sm text-gray-600">{t.role}</p>}

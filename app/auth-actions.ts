@@ -47,6 +47,7 @@ import {
   sendSecurityNoticeEmail,
 } from "@/lib/resend";
 import { checkIpRateLimit, rateLimitMessage, RATE_LIMITS } from "@/lib/rate-limit";
+import { deleteObject } from "@/lib/r2";
 
 type ActionResult =
   | { success: true }
@@ -292,11 +293,19 @@ export async function deleteMyAccount(input: unknown): Promise<ActionResult> {
     };
   }
 
+  let kycKeys: string[] = [];
   try {
-    await softDeleteUser(account.id);
+    ({ kycKeys } = await softDeleteUser(account.id));
   } catch (error) {
     console.error("Error deleting account:", error);
     return { success: false, error: "Could not delete your account. Please try again." };
+  }
+
+  // The database rows are already gone; removing the files is best-effort.
+  for (const key of kycKeys) {
+    await deleteObject(key).catch((error) =>
+      console.error("Could not delete KYC document for a deleted account:", error)
+    );
   }
 
   revalidatePath("/talent");

@@ -35,6 +35,7 @@ export default async function AdminDirectoryPage({
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <Link href="/admin" className={navLink}>← Pipeline</Link>
             <Link href="/admin/interests" className={navLink}>Interests</Link>
+            <Link href="/admin/kyc" className={navLink}>KYC</Link>
             <Link href="/admin/users" className={navLink}>Users</Link>
             <Link href="/admin/training" className={navLink}>Training</Link>
             <Link href="/admin/audit" className={navLink}>Audit Log →</Link>
@@ -62,6 +63,7 @@ export default async function AdminDirectoryPage({
                   <th className="px-6 py-3">Email</th>
                   <th className="px-6 py-3">Role</th>
                   <th className="px-6 py-3">Skills</th>
+                  <th className="px-6 py-3">KYC</th>
                   <th className="px-6 py-3">Listed</th>
                   <th className="px-6 py-3 text-right">Verify</th>
                 </tr>
@@ -69,7 +71,7 @@ export default async function AdminDirectoryPage({
               <tbody>
                 {rows.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-400">
+                    <td colSpan={7} className="px-6 py-8 text-center text-gray-400">
                       {query ? "No talent matches your search." : "No talent accounts yet."}
                     </td>
                   </tr>
@@ -80,6 +82,17 @@ export default async function AdminDirectoryPage({
                     <td className="px-6 py-4 text-gray-600">{a.email}</td>
                     <td className="px-6 py-4 text-gray-600">{a.role ?? "-"}</td>
                     <td className="px-6 py-4 text-gray-600 truncate max-w-[240px]">{a.skills ?? "-"}</td>
+                    <td className="px-6 py-4">
+                      {a.kycStatus === "Approved" ? (
+                        <Badge variant="success">Verified</Badge>
+                      ) : a.kycStatus === "Pending" ? (
+                        <Badge variant="warning">Pending</Badge>
+                      ) : a.kycStatus === "Rejected" ? (
+                        <Badge variant="danger">Rejected</Badge>
+                      ) : (
+                        <span className="text-xs text-gray-400">Not submitted</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4">
                       {a.verified ? <Badge variant="success">Listed</Badge> : <Badge variant="default">Not listed</Badge>}
                     </td>

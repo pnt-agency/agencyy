@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Briefcase, FileText, Calendar, ChevronRight, CheckCircle2, TrendingUp, MailWarning, ShieldCheck, Clock, Users } from "lucide-react";
+import { Briefcase, FileText, Calendar, ChevronRight, CheckCircle2, TrendingUp, MailWarning, ShieldCheck, Clock, Users, IdCard, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { resendVerificationEmail } from "@/app/auth-actions";
 
@@ -15,6 +15,7 @@ type DashboardViewProps = {
   emailVerified: boolean;
   listed?: boolean;
   interestCount?: number;
+  kycStatus?: string | null;
 };
 
 export function DashboardView({
@@ -27,6 +28,7 @@ export function DashboardView({
   emailVerified,
   listed = false,
   interestCount = 0,
+  kycStatus = null,
 }: DashboardViewProps) {
   // Roles are "talent" | "employer" | "admin" | "user". Test each explicitly —
   // treating "not employer" as talent shows admins (and fresh Google signups,
@@ -64,6 +66,15 @@ export function DashboardView({
     }
     if (isTalent) {
       nextSteps.push({ label: "Continue your verification training", href: "/training" });
+      if (kycStatus === "Approved") {
+        // Nothing to do — the badge is already on the profile.
+      } else if (kycStatus === "Pending") {
+        nextSteps.push({ label: "Identity check under review — view submission", href: "/kyc" });
+      } else if (kycStatus === "Rejected") {
+        nextSteps.push({ label: "Resubmit your identity documents", href: "/kyc" });
+      } else {
+        nextSteps.push({ label: "Verify your identity — adds an ID badge", href: "/kyc" });
+      }
       if (leadCount === 0) {
         nextSteps.push({ label: "Submit your talent application", href: "/apply" });
       }
@@ -125,6 +136,58 @@ export function DashboardView({
               <p className="text-sm text-gray-700">Your profile is <span className="font-semibold">pending review</span>. Our team verifies profiles before listing them in the directory.</p>
             </div>
           )
+        )}
+
+        {/* Talent: identity verification state */}
+        {isTalent && kycStatus !== "Approved" && (
+          <div
+            className={`mb-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between rounded-2xl border px-5 py-4 ${
+              kycStatus === "Rejected"
+                ? "border-red-200 bg-red-50"
+                : kycStatus === "Pending"
+                ? "border-amber-200 bg-amber-50"
+                : "border-gray-200 bg-white"
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              {kycStatus === "Rejected" ? (
+                <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
+              ) : kycStatus === "Pending" ? (
+                <Clock className="w-5 h-5 text-amber-600 shrink-0" />
+              ) : (
+                <IdCard className="w-5 h-5 text-gray-500 shrink-0" />
+              )}
+              <p
+                className={`text-sm ${
+                  kycStatus === "Rejected"
+                    ? "text-red-900"
+                    : kycStatus === "Pending"
+                    ? "text-amber-900"
+                    : "text-gray-700"
+                }`}
+              >
+                {kycStatus === "Rejected" ? (
+                  <>Your identity check <span className="font-semibold">needs another look</span> — resubmit to fix it.</>
+                ) : kycStatus === "Pending" ? (
+                  <>Your identity check is <span className="font-semibold">under review</span>. We&apos;ll let you know when it&apos;s done.</>
+                ) : (
+                  <>Verify your identity to add an <span className="font-semibold">ID verified</span> badge to your profile.</>
+                )}
+              </p>
+            </div>
+            <Link
+              href="/kyc"
+              className={`text-sm font-semibold underline hover:no-underline shrink-0 ${
+                kycStatus === "Rejected"
+                  ? "text-red-900"
+                  : kycStatus === "Pending"
+                  ? "text-amber-900"
+                  : "text-black"
+              }`}
+            >
+              {kycStatus === "Rejected" ? "Resubmit" : kycStatus === "Pending" ? "View" : "Verify now"}
+            </Link>
+          </div>
         )}
 
         {/* Talent: interest received (read-only — connections are admin-mediated) */}
@@ -264,6 +327,7 @@ export function DashboardView({
                   ? [
                       { label: "My Profile", href: "/profile-setup" },
                       { label: "Training Hub", href: "/training" },
+                      { label: "Identity verification", href: "/kyc" },
                     ]
                   : isEmployer
                   ? [

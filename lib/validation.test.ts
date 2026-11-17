@@ -8,6 +8,8 @@ import {
   deleteAccountSchema,
   talentInputSchema,
   employerInputSchema,
+  kycSubmissionSchema,
+  kycReviewSchema,
 } from "./validation";
 
 describe("registerMemberSchema", () => {
@@ -136,5 +138,92 @@ describe("link fields accept only http(s)", () => {
     for (const value of unsafe) {
       expect(talentProfileSchema.safeParse({ portfolio: value }).success, value).toBe(false);
     }
+  });
+});
+
+describe("KYC submission schema", () => {
+  const file = (prefix: "id" | "selfie", ext = "jpg") => ({
+    key: `kyc/${prefix}/6f1c2d34-1234-4abc-8def-1234567890ab.${ext}`,
+    filename: `document.${ext}`,
+    size: 1024,
+    contentType: ext === "pdf" ? "application/pdf" : "image/jpeg",
+  });
+
+  const valid = {
+    legalName: "Ada Okafor",
+    dateOfBirth: "1994-05-12",
+    country: "Nigeria",
+    idType: "Passport" as const,
+    idNumber: "A1234567",
+    idDocument: file("id", "pdf"),
+    selfie: file("selfie"),
+    consent: true,
+  };
+
+  it("accepts a complete submission", () => {
+    expect(kycSubmissionSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it("rejects a document key outside the KYC prefixes", () => {
+    expect(
+      kycSubmissionSchema.safeParse({
+        ...valid,
+        idDocument: { ...file("id"), key: "cv/6f1c2d34-1234-4abc-8def-1234567890ab.pdf" },
+      }).success
+    ).toBe(false);
+    // A selfie slot must not accept an ID file.
+    expect(
+      kycSubmissionSchema.safeParse({
+        ...valid,
+        selfie: { ...file("selfie"), key: file("id").key },
+      }).success
+    ).toBe(false);
+  });
+
+  it("rejects a selfie uploaded as a PDF", () => {
+    expect(
+      kycSubmissionSchema.safeParse({ ...valid, selfie: file("selfie", "pdf") }).success
+    ).toBe(false);
+  });
+
+  it("requires the NDPA consent flag", () => {
+    expect(kycSubmissionSchema.safeParse({ ...valid, consent: false }).success).toBe(false);
+  });
+
+  it("rejects under-18 and impossible birth dates", () => {
+    const thisYear = new Date().getUTCFullYear();
+    expect(
+      kycSubmissionSchema.safeParse({ ...valid, dateOfBirth: `${thisYear - 17}-01-01` }).success
+    ).toBe(false);
+    expect(
+      kycSubmissionSchema.safeParse({ ...valid, dateOfBirth: "1990-02-31" }).success
+    ).toBe(false);
+    expect(
+      kycSubmissionSchema.safeParse({ ...valid, dateOfBirth: "not-a-date" }).success
+    ).toBe(false);
+  });
+
+  it("rejects an unknown ID type", () => {
+    expect(
+      kycSubmissionSchema.safeParse({ ...valid, idType: "Library Card" }).success
+    ).toBe(false);
+  });
+});
+
+describe("KYC review schema", () => {
+  const userId = "6f1c2d34-1234-4abc-8def-1234567890ab";
+
+  it("allows approval without a note", () => {
+    expect(kycReviewSchema.safeParse({ userId, decision: "approve" }).success).toBe(true);
+  });
+
+  it("requires a note when rejecting", () => {
+    expect(kycReviewSchema.safeParse({ userId, decision: "reject" }).success).toBe(false);
+    expect(
+      kycReviewSchema.safeParse({ userId, decision: "reject", note: "   " }).success
+    ).toBe(false);
+    expect(
+      kycReviewSchema.safeParse({ userId, decision: "reject", note: "Photo is blurred" }).success
+    ).toBe(true);
   });
 });
